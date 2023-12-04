@@ -5,21 +5,12 @@
 
 module XMonad.Layout.DecorationEx.Widgets where 
 
-import Control.Monad
 import XMonad
-import XMonad.Prelude
 import qualified XMonad.StackSet as W
 import XMonad.Actions.DwmPromote
 import qualified XMonad.Actions.CopyWindow as CW
-import XMonad.Layout.Decoration
-import XMonad.Layout.WindowSwitcherDecoration
-import XMonad.Layout.DecorationAddons
-import XMonad.Layout.DraggingVisualizer
 import XMonad.Layout.Maximize
 import XMonad.Actions.Minimize
-import XMonad.Util.Font
-
-import Foreign.C.Types (CInt)
 
 import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.DecorationStyleEx
