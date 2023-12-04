@@ -312,11 +312,16 @@ defaultPlaceWidgets deco theme shrinker font decoRect window wlayout = do
     let dd' = dd {ddDecoRect = pad (widgetsPadding theme) (ddDecoRect dd)}
     rightRects <- alignRight deco dd' rightWidgets
     leftRects <- alignLeft deco dd' leftWidgets
-    centerRects <- alignCenter deco dd' centerWidgets
+    let leftWidgetsWidth = sum $ map (rect_width . wpRectangle) leftRects
+        rightWidgetsWidth = sum $ map (rect_width . wpRectangle) rightRects
+        dd'' = dd' {ddDecoRect = padCenter leftWidgetsWidth rightWidgetsWidth (ddDecoRect dd)}
+    centerRects <- alignCenter deco dd'' centerWidgets
     return $ leftRects ++ centerRects ++ rightRects
   where
     pad p (Rectangle x y w h) =
       Rectangle (fi (bxLeft p)) (fi (bxTop p))
                 (w - bxLeft p - bxRight p)
                 (h - bxTop p - bxBottom p)
+  
+    padCenter left right = pad (BoxBorders 0 right 0 left)
 
