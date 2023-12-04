@@ -19,24 +19,11 @@ module XMonad.Layout.DecorationEx.Types (
   , widgetLayout
   ) where
 
-import Control.Monad
 import Data.Default
-import qualified Data.Map as M
-import Foreign.C.Types (CInt)
 
 import XMonad
-import XMonad.Prelude
-import qualified XMonad.StackSet as W
-import XMonad.Layout.Decoration (DecorationMsg (..), Shrinker (..))
 import qualified XMonad.Layout.Decoration as D
-import XMonad.Layout.WindowArranger (WindowArrangerMsg (..), diff, listFromList)
-import XMonad.Layout.DraggingVisualizer (DraggingVisualizerMsg (..))
 import XMonad.Util.Font
-import XMonad.Util.Invisible
-import XMonad.Util.XUtils hiding (paintTextAndIcons)
-import XMonad.Util.Image
-import XMonad.Util.NamedWindows (getName)
-import XMonad.Hooks.UrgencyHook
 
 data WindowDecoration = WindowDecoration {
     wdOrigWindow :: Window

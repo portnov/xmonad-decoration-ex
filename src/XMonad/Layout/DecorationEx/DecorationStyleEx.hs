@@ -10,22 +10,16 @@
 module XMonad.Layout.DecorationEx.DecorationStyleEx where
 
 import Control.Monad
-import Data.Default
-import qualified Data.Map as M
 import Data.Bits (testBit)
 import Foreign.C.Types (CInt)
 
 import XMonad
 import XMonad.Prelude
 import qualified XMonad.StackSet as W
-import XMonad.Layout.Decoration (DecorationMsg (..), Shrinker (..), isInStack, shrinkWhile)
-import XMonad.Layout.WindowArranger (WindowArrangerMsg (..), diff, listFromList)
+import XMonad.Layout.Decoration (Shrinker (..), isInStack, shrinkWhile)
 import XMonad.Layout.DraggingVisualizer (DraggingVisualizerMsg (..))
 import XMonad.Layout.DecorationAddons (handleScreenCrossing)
 import XMonad.Util.Font
-import XMonad.Util.Invisible
-import XMonad.Util.XUtils hiding (paintTextAndIcons)
-import XMonad.Util.Image
 import XMonad.Util.NamedWindows (getName)
 import XMonad.Hooks.UrgencyHook
 

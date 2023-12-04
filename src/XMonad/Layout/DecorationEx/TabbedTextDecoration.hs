@@ -1,27 +1,15 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, ViewPatterns #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE NamedFieldPuns #-}
 
 module XMonad.Layout.DecorationEx.TabbedTextDecoration where 
 
-import Control.Monad
 import XMonad
 import qualified XMonad.StackSet as W
 import XMonad.Prelude
-import XMonad.Layout.Decoration (ModifiedLayout, Theme (..), DecorationMsg (..), Shrinker (..))
-import qualified XMonad.Layout.Decoration as D
-import XMonad.Layout.WindowSwitcherDecoration
-import XMonad.Layout.DecorationAddons
-import XMonad.Layout.DraggingVisualizer
-import XMonad.Layout.Maximize
-import XMonad.Actions.Minimize
-import XMonad.Util.Font
+import XMonad.Layout.Decoration (ModifiedLayout, Shrinker (..))
 import XMonad.Util.Types
-
-import Foreign.C.Types (CInt)
 
 import XMonad.Layout.DecorationEx.LayoutModifier
 import XMonad.Layout.DecorationEx.Types

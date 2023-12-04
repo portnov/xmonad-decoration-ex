@@ -8,18 +8,10 @@
 
 module XMonad.Layout.DecorationEx.TextDecoration where 
 
-import Control.Monad
 import XMonad
 import XMonad.Prelude
-import XMonad.Layout.Decoration (ModifiedLayout, DecorationMsg (..), Shrinker (..))
-import XMonad.Layout.WindowSwitcherDecoration
-import XMonad.Layout.DecorationAddons
-import XMonad.Layout.DraggingVisualizer
-import XMonad.Layout.Maximize
-import XMonad.Actions.Minimize
+import XMonad.Layout.Decoration (ModifiedLayout, Shrinker (..))
 import XMonad.Util.Font
-
-import Foreign.C.Types (CInt)
 
 import XMonad.Layout.DecorationEx.LayoutModifier
 import XMonad.Layout.DecorationEx.Types

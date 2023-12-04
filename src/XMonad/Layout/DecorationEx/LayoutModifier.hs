@@ -1,6 +1,5 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, ViewPatterns #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -9,29 +8,18 @@
 
 module XMonad.Layout.DecorationEx.LayoutModifier where
 
-import Control.Monad
-import Data.Default
-import qualified Data.Map as M
-import Data.Bits (testBit)
-import Foreign.C.Types (CInt)
-
 import XMonad
 import XMonad.Prelude
 import qualified XMonad.StackSet as W
 import XMonad.Layout.LayoutModifier
-import XMonad.Layout.Decoration (Theme (..), DecorationMsg (..), Shrinker (..), shrinkWhile)
-import XMonad.Layout.WindowArranger (WindowArrangerMsg (..), diff, listFromList)
-import XMonad.Layout.DraggingVisualizer (DraggingVisualizerMsg (..))
+import XMonad.Layout.Decoration (Shrinker (..) )
+import XMonad.Layout.WindowArranger (diff, listFromList)
 import XMonad.Util.Font
 import XMonad.Util.Invisible
 import XMonad.Util.XUtils hiding (paintTextAndIcons)
-import XMonad.Util.Image
-import XMonad.Util.NamedWindows (getName)
-import XMonad.Hooks.UrgencyHook
 
 import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.DecorationStyleEx
-import XMonad.Layout.DecorationEx.Widgets
 
 -- | The 'Decoration' 'LayoutModifier'. This data type is an instance
 -- of the 'LayoutModifier' class. This data type will be passed,
