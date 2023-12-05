@@ -26,7 +26,8 @@ import XMonad.Hooks.UrgencyHook
 
 import XMonad.Layout.DecorationEx.Types
 
-instance (Show widget, Read widget) => ThemeAttributes (ThemeEx widget) where
+instance (Show widget, Read widget, Read (WidgetCommand widget), Show (WidgetCommand widget))
+        => ThemeAttributes (ThemeEx widget) where
   type Style (ThemeEx widget) = SimpleStyle
   selectWindowStyle theme w = windowStyle w theme
   defaultBgColor t = sBgColor $ exInactive t
@@ -50,6 +51,7 @@ class (Read (dstyle a), Show (dstyle a),
        Eq a,
        DecorationWidget (Widget dstyle),
        HasWidgets (Theme dstyle) (Widget dstyle),
+       ClickHandler (Theme dstyle) (Widget dstyle),
        ThemeAttributes (Theme dstyle (Widget dstyle)))
     => DecorationStyleEx dstyle a where
 
@@ -81,7 +83,7 @@ class (Read (dstyle a), Show (dstyle a),
     decorationEventHookEx :: Shrinker shrinker => dstyle a -> ThemeW dstyle -> DecorationStateEx -> shrinker -> Event -> X ()
     decorationEventHookEx = handleMouseFocusDrag
 
-    handleDecorationClick :: dstyle a -> ThemeW dstyle -> Rectangle -> [Rectangle] -> Window -> Int -> Int -> X Bool
+    handleDecorationClick :: dstyle a -> ThemeW dstyle -> Rectangle -> [Rectangle] -> Window -> Int -> Int -> Int -> X Bool
     handleDecorationClick = decorationHandler
 
     decorationWhileDraggingHook :: dstyle a -> CInt -> CInt -> (Window, Rectangle) -> Position -> Position -> X ()
@@ -213,14 +215,15 @@ getShrinkedWindowName shrinker font win wh ht = do
 -- | Mouse focus and mouse drag are handled by the same function, this
 -- way we can start dragging unfocused windows too.
 handleMouseFocusDrag :: (DecorationStyleEx dstyle a, Shrinker shrinker) => dstyle a -> ThemeW dstyle -> DecorationStateEx -> shrinker -> Event -> X ()
-handleMouseFocusDrag ds theme (DecorationStateEx {dsDecorations, dsFont}) shrinker (ButtonEvent {ev_window, ev_x_root, ev_y_root, ev_event_type})
+handleMouseFocusDrag ds theme (DecorationStateEx {dsDecorations, dsFont}) shrinker (ButtonEvent {ev_window, ev_x_root, ev_y_root, ev_event_type, ev_button})
     | ev_event_type == buttonPress
     , Just (WindowDecoration {..}) <- findDecoDataByDecoWindow ev_window dsDecorations = do
         let decoRect@(Rectangle dx dy _ _) = fromJust wdDecoRect
             x = fi $ ev_x_root - fi dx
             y = fi $ ev_y_root - fi dy
-        dealtWith <- handleDecorationClick ds theme decoRect (map wpRectangle wdWidgets) wdOrigWindow x y
-        unless dealtWith $
+            button = fi ev_button
+        dealtWith <- handleDecorationClick ds theme decoRect (map wpRectangle wdWidgets) wdOrigWindow x y button
+        unless dealtWith $ when (isDraggingEnabled theme button) $
             mouseDrag (\x y -> focus wdOrigWindow >> decorationWhileDraggingHook ds ev_x_root ev_y_root (wdOrigWindow, wdOrigWinRect) x y)
                       (decorationAfterDraggingHook ds (wdOrigWindow, wdOrigWinRect) ev_window)
 handleMouseFocusDrag _ _ _ _ _ = return ()
@@ -231,7 +234,8 @@ findDecoDataByDecoWindow :: Window -> [WindowDecoration] -> Maybe WindowDecorati
 findDecoDataByDecoWindow decoWin = find (\dd -> wdDecoWindow dd == Just decoWin)
 
 decorationHandler :: forall dstyle a.
-                     (DecorationStyleEx dstyle a)
+                     (DecorationStyleEx dstyle a,
+                      ClickHandler (Theme dstyle) (Widget dstyle))
                   => dstyle a
                   -> ThemeW dstyle
                   -> Rectangle
@@ -239,16 +243,24 @@ decorationHandler :: forall dstyle a.
                   -> Window
                   -> Int
                   -> Int
+                  -> Int
                   -> X Bool
-decorationHandler deco theme decoRect widgetPlaces window x y = do
-    go $ zip (widgetLayout $ themeWidgets theme) widgetPlaces
+decorationHandler deco theme decoRect widgetPlaces window x y button = do
+    widgetDone <- go $ zip (widgetLayout $ themeWidgets theme) widgetPlaces
+    if widgetDone
+      then return True
+      else case onDecorationClick theme button of
+             Just cmd -> do
+               executeWindowCommand cmd window
+               return True
+             Nothing -> return False
   where
     go :: [(Widget dstyle, Rectangle)] -> X Bool
     go [] = return False
     go ((w, rect) : rest) = do
       if pointWithin (fi x) (fi y) rect
         then do
-          executeWindowCommand (widgetCommand w) window
+          executeWindowCommand (widgetCommand w button) window
           return True
         else go rest
 

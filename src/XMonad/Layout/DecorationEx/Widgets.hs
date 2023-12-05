@@ -11,12 +11,15 @@ import XMonad.Actions.DwmPromote
 import qualified XMonad.Actions.CopyWindow as CW
 import XMonad.Layout.Maximize
 import XMonad.Actions.Minimize
+import qualified XMonad.Layout.BoringWindows as BW
 
 import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.DecorationStyleEx
 
 data StandardCommand =
       Noop
+    | FocusUp
+    | FocusDown
     | DwmPromote
     | ToggleSticky
     | ToggleMaximize
@@ -26,6 +29,12 @@ data StandardCommand =
 
 instance WindowCommand StandardCommand where
   executeWindowCommand Noop w = focus w
+  executeWindowCommand FocusUp _ = do
+    windows W.focusUp
+    withFocused maximizeWindowAndFocus
+  executeWindowCommand FocusDown _ = do
+    windows W.focusDown
+    withFocused maximizeWindowAndFocus
   executeWindowCommand CloseWindow w = killWindow w
   executeWindowCommand DwmPromote w = do
     focus w
@@ -71,11 +80,12 @@ data StandardWidget =
 instance DecorationWidget StandardWidget where
   type WidgetCommand StandardWidget = StandardCommand
 
-  widgetCommand TitleWidget = Noop
-  widgetCommand w = swCommand w
+  widgetCommand TitleWidget _ = Noop
+  widgetCommand w 1 = swCommand w
+  widgetCommand _ _ = Noop
 
 isWidgetChecked :: DecorationWidget widget => widget -> Window -> X Bool
-isWidgetChecked wdt = isCommandChecked (widgetCommand wdt)
+isWidgetChecked wdt = isCommandChecked (widgetCommand wdt 1)
 
 widgetString :: (Widget dstyle ~ StandardWidget) => DrawData dstyle -> Widget dstyle -> X String
 widgetString dd TitleWidget = return $ ddWindowTitle dd

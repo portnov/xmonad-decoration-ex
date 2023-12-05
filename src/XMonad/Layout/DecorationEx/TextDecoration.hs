@@ -8,6 +8,8 @@
 
 module XMonad.Layout.DecorationEx.TextDecoration where 
 
+import qualified Data.Map as M
+
 import XMonad
 import XMonad.Prelude
 import XMonad.Layout.Decoration (ModifiedLayout, Shrinker (..))
@@ -20,6 +22,10 @@ import XMonad.Layout.DecorationEx.Widgets
 
 data TextDecoration a = TextDecoration
   deriving (Show, Read)
+
+instance ClickHandler ThemeEx StandardWidget where
+  onDecorationClick theme button = M.lookup button (exOnDecoClick theme)
+  isDraggingEnabled theme button = button `elem` exDragWindowButtons theme
 
 instance DecorationStyleEx TextDecoration Window where
   type Theme TextDecoration = ThemeEx

@@ -3,6 +3,8 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module XMonad.Layout.DecorationEx.Types (
     WindowDecoration (..)
@@ -12,6 +14,7 @@ module XMonad.Layout.DecorationEx.Types (
   , WidgetPlace (..)
   , WidgetLayout (..)
   , HasWidgets (..)
+  , ClickHandler (..)
   , ThemeAttributes (..)
   , DecorationPaintingContext
   , BoxBorders (..), BorderColors, borderColor, shadowBorder
@@ -20,6 +23,7 @@ module XMonad.Layout.DecorationEx.Types (
   ) where
 
 import Data.Default
+import qualified Data.Map as M
 
 import XMonad
 import qualified XMonad.Layout.Decoration as D
@@ -45,7 +49,7 @@ class (Read cmd, Show cmd) => WindowCommand cmd where
 class (WindowCommand (WidgetCommand widget), Read widget, Show widget)
   => DecorationWidget widget where
   type WidgetCommand widget
-  widgetCommand :: widget -> WidgetCommand widget
+  widgetCommand :: widget -> Int -> WidgetCommand widget
 
 data WidgetLayout a = WidgetLayout {
     wlLeft :: [a]
@@ -87,6 +91,10 @@ data SimpleStyle = SimpleStyle {
 class HasWidgets theme widget where
   themeWidgets :: theme widget -> WidgetLayout widget
 
+class ClickHandler theme widget where
+  onDecorationClick :: theme widget -> Int -> Maybe (WidgetCommand widget)
+  isDraggingEnabled :: theme widget -> Int -> Bool
+
 class (Read theme, Show theme) => ThemeAttributes theme where
   type Style theme
   selectWindowStyle :: theme -> Window -> X (Style theme)
@@ -103,11 +111,15 @@ data ThemeEx widget = ThemeEx {
   , exFontName :: String
   , exDecoWidth :: Dimension
   , exDecoHeight :: Dimension
+  , exOnDecoClick :: M.Map Int (WidgetCommand widget)
+  , exDragWindowButtons :: [Int]
   , exWidgetsLeft :: [widget]
   , exWidgetsCenter :: [widget]
   , exWidgetsRight :: [widget]
   }
-  deriving (Read, Show)
+
+deriving instance (Show widget, Show (WidgetCommand widget)) => Show (ThemeEx widget)
+deriving instance (Read widget, Read (WidgetCommand widget)) => Read (ThemeEx widget)
 
 instance HasWidgets ThemeEx widget where
   themeWidgets theme = WidgetLayout (exWidgetsLeft theme) (exWidgetsCenter theme) (exWidgetsRight theme)
@@ -122,6 +134,8 @@ themeEx t =
         , exFontName = D.fontName t
         , exDecoWidth = D.decoWidth t
         , exDecoHeight = D.decoHeight t
+        , exOnDecoClick = M.empty
+        , exDragWindowButtons = [1]
         , exWidgetsLeft = []
         , exWidgetsCenter = []
         , exWidgetsRight = []
