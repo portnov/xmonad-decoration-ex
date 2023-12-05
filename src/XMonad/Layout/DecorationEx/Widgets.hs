@@ -9,6 +9,7 @@ import XMonad
 import qualified XMonad.StackSet as W
 import XMonad.Actions.DwmPromote
 import qualified XMonad.Actions.CopyWindow as CW
+import qualified XMonad.Layout.Groups.Examples as Ex
 import XMonad.Layout.Maximize
 import XMonad.Actions.Minimize
 
@@ -19,6 +20,8 @@ data StandardCommand =
       Noop
     | FocusUp
     | FocusDown
+    | MoveToNextGroup
+    | MoveToPrevGroup
     | DwmPromote
     | ToggleSticky
     | ToggleMaximize
@@ -34,6 +37,12 @@ instance WindowCommand StandardCommand where
   executeWindowCommand FocusDown _ = do
     windows W.focusDown
     withFocused maximizeWindowAndFocus
+  executeWindowCommand MoveToNextGroup w = do
+    focus w
+    Ex.moveToGroupDown False
+  executeWindowCommand MoveToPrevGroup w = do
+    focus w
+    Ex.moveToGroupUp False
   executeWindowCommand CloseWindow w = killWindow w
   executeWindowCommand DwmPromote w = do
     focus w
@@ -51,7 +60,6 @@ instance WindowCommand StandardCommand where
     minimizeWindow w
 
   isCommandChecked Noop _ = return False
-  isCommandChecked CloseWindow _ = return False
   isCommandChecked DwmPromote w = do
       withWindowSet $ \ws -> return $ Just w == master ws
     where
@@ -63,8 +71,7 @@ instance WindowCommand StandardCommand where
     ws <- gets windowset
     let copies = CW.copiesOfOn (Just w) (CW.taggedWindows $ W.hidden ws)
     return $ not $ null copies
-  isCommandChecked ToggleMaximize _ = return False
-  isCommandChecked Minimize _ = return False
+  isCommandChecked _ _ = return False
 
 data StandardWidget =
       TitleWidget
@@ -100,4 +107,6 @@ minimizeW = StandardWidget "" "[_]" Minimize
 maximizeW = StandardWidget "" "[O]" ToggleMaximize
 closeW = StandardWidget "" "[X]" CloseWindow
 dwmpromoteW = StandardWidget "[M]" "[m]" DwmPromote
+moveToNextGroupW = StandardWidget "" "[>]" MoveToNextGroup
+moveToPrevGroupW = StandardWidget "" "[<]" MoveToPrevGroup
 
