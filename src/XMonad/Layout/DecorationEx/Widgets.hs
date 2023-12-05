@@ -11,7 +11,6 @@ import XMonad.Actions.DwmPromote
 import qualified XMonad.Actions.CopyWindow as CW
 import XMonad.Layout.Maximize
 import XMonad.Actions.Minimize
-import qualified XMonad.Layout.BoringWindows as BW
 
 import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.DecorationStyleEx
