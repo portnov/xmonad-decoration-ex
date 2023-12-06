@@ -23,13 +23,14 @@ import XMonad.Layout.DecorationEx.Widgets
 data TextDecoration a = TextDecoration
   deriving (Show, Read)
 
-instance ClickHandler ThemeEx StandardWidget where
+instance ClickHandler (GenericTheme SimpleStyle) StandardWidget where
   onDecorationClick theme button = M.lookup button (exOnDecoClick theme)
   isDraggingEnabled theme button = button `elem` exDragWindowButtons theme
 
 instance DecorationStyleEx TextDecoration Window where
-  type Theme TextDecoration = ThemeEx
+  type Theme TextDecoration = GenericTheme SimpleStyle
   type Widget TextDecoration = StandardWidget
+  type DecorationPaintingContext TextDecoration = XPaintingContext
 
   describeDecoration _ = "TextDecoration"
 
@@ -41,9 +42,12 @@ instance DecorationStyleEx TextDecoration Window where
 
   placeWidgets = defaultPlaceWidgets
 
-paintTextWidget :: (Widget dstyle ~ StandardWidget, Style (ThemeW dstyle) ~ SimpleStyle, DecorationStyleEx dstyle Window)
+paintTextWidget :: (Widget dstyle ~ StandardWidget,
+                    Style (ThemeW dstyle) ~ SimpleStyle,
+                    DecorationPaintingContext dstyle ~ XPaintingContext,
+                    DecorationStyleEx dstyle Window)
                 => dstyle Window
-                -> DecorationPaintingContext
+                -> DecorationPaintingContext dstyle
                 -> WidgetPlace
                 -> DrawData dstyle
                 -> Widget dstyle
@@ -55,7 +59,8 @@ paintTextWidget deco (dpy, pixmap, gc) place dd widget = do
     str <- widgetString dd widget
     printStringXMF dpy pixmap (ddFont dd) gc (sTextColor style) (sTextBgColor style) x y str
 
-calcTextWidgetPlace :: (Widget dstyle ~ StandardWidget, DecorationStyleEx dstyle Window)
+calcTextWidgetPlace :: (Widget dstyle ~ StandardWidget,
+                        DecorationStyleEx dstyle Window)
                     => dstyle Window
                     -> DrawData dstyle
                     -> Widget dstyle

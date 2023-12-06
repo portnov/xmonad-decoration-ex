@@ -21,8 +21,9 @@ newtype TabbedTextDecoration a = TabbedTextDecoration Direction2D
   deriving (Show, Read)
 
 instance DecorationStyleEx TabbedTextDecoration Window where
-  type Theme TabbedTextDecoration = ThemeEx
+  type Theme TabbedTextDecoration = GenericTheme SimpleStyle
   type Widget TabbedTextDecoration = StandardWidget
+  type DecorationPaintingContext TabbedTextDecoration = XPaintingContext
 
   describeDecoration (TabbedTextDecoration _) = "TabbedText"
 

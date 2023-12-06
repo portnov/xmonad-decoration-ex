@@ -16,9 +16,9 @@ module XMonad.Layout.DecorationEx.Types (
   , HasWidgets (..)
   , ClickHandler (..)
   , ThemeAttributes (..)
-  , DecorationPaintingContext
+  , XPaintingContext
   , BoxBorders (..), BorderColors, borderColor, shadowBorder
-  , SimpleStyle (..), ThemeEx (..), themeEx
+  , SimpleStyle (..), GenericTheme (..), ThemeEx, themeEx
   , widgetLayout
   ) where
 
@@ -103,10 +103,10 @@ class (Read theme, Show theme) => ThemeAttributes theme where
   decorationSize :: theme -> (Dimension, Dimension)
   themeFontName :: theme -> String
 
-data ThemeEx widget = ThemeEx {
-    exActive :: SimpleStyle
-  , exInactive :: SimpleStyle
-  , exUrgent :: SimpleStyle
+data GenericTheme style widget = GenericTheme {
+    exActive :: style
+  , exInactive :: style
+  , exUrgent :: style
   , exPadding :: BoxBorders Dimension
   , exFontName :: String
   , exDecoWidth :: Dimension
@@ -118,15 +118,17 @@ data ThemeEx widget = ThemeEx {
   , exWidgetsRight :: [widget]
   }
 
-deriving instance (Show widget, Show (WidgetCommand widget)) => Show (ThemeEx widget)
-deriving instance (Read widget, Read (WidgetCommand widget)) => Read (ThemeEx widget)
+deriving instance (Show widget, Show (WidgetCommand widget), Show style) => Show (GenericTheme style widget)
+deriving instance (Read widget, Read (WidgetCommand widget), Read style) => Read (GenericTheme style widget)
 
-instance HasWidgets ThemeEx widget where
+type ThemeEx widget = GenericTheme SimpleStyle widget
+
+instance HasWidgets (GenericTheme style) widget where
   themeWidgets theme = WidgetLayout (exWidgetsLeft theme) (exWidgetsCenter theme) (exWidgetsRight theme)
 
 themeEx :: D.Theme -> ThemeEx widget
 themeEx t =
-    ThemeEx {
+    GenericTheme {
           exActive = SimpleStyle (D.activeColor t) (D.activeBorderColor t) (D.activeTextColor t) (D.activeColor t) (D.activeBorderWidth t) (borderColor $ D.activeColor t)
         , exInactive = SimpleStyle (D.inactiveColor t) (D.inactiveBorderColor t) (D.inactiveTextColor t) (D.inactiveColor t) (D.inactiveBorderWidth t) (borderColor $ D.inactiveColor t)
         , exUrgent = SimpleStyle (D.urgentColor t) (D.urgentBorderColor t) (D.urgentTextColor t) (D.urgentColor t) (D.urgentBorderWidth t) (borderColor $ D.urgentColor t)
@@ -147,5 +149,5 @@ instance Default (ThemeEx widget) where
 widgetLayout :: WidgetLayout widget -> [widget]
 widgetLayout ws = wlLeft ws ++ wlCenter ws ++ wlRight ws
 
-type DecorationPaintingContext = (Display, Pixmap, GC)
+type XPaintingContext = (Display, Pixmap, GC)
 

@@ -20,8 +20,9 @@ data DwmTextDecoration a = DwmTextDecoration Bool
   deriving (Show, Read)
 
 instance DecorationStyleEx DwmTextDecoration Window where
-  type Theme DwmTextDecoration = ThemeEx
+  type Theme DwmTextDecoration = GenericTheme SimpleStyle
   type Widget DwmTextDecoration = StandardWidget
+  type DecorationPaintingContext DwmTextDecoration = XPaintingContext
 
   describeDecoration (DwmTextDecoration _) = "DwmText"
 

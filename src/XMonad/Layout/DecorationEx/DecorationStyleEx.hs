@@ -57,6 +57,7 @@ class (Read (dstyle a), Show (dstyle a),
 
     type Theme dstyle :: * -> *
     type Widget dstyle
+    type DecorationPaintingContext dstyle
 
     describeDecoration :: dstyle a -> String
 
@@ -104,7 +105,7 @@ class (Read (dstyle a), Show (dstyle a),
     paintDecoration :: dstyle a -> a -> Dimension -> Dimension -> DrawData dstyle -> X()
     -- FIXME: Передавать не DrawData (со списком остальных виджетов зачем-то),
     -- а более скромную структуру
-    paintWidget :: dstyle a -> DecorationPaintingContext -> WidgetPlace -> DrawData dstyle -> Widget dstyle -> X ()
+    paintWidget :: dstyle a -> DecorationPaintingContext dstyle -> WidgetPlace -> DrawData dstyle -> Widget dstyle -> X ()
 
 handleDraggingInProgress :: CInt -> CInt -> (Window, Rectangle) -> Position -> Position -> X ()
 handleDraggingInProgress ex ey (mainw, r) x y = do
@@ -187,7 +188,7 @@ mkDrawData shrinker theme font origWindow decoRect@(Rectangle _ _ wh ht) = do
                    ddWidgetPlaces = []
                   }
 
-windowStyle :: Window -> ThemeEx widget -> X SimpleStyle
+windowStyle :: Window -> GenericTheme style widget -> X style
 windowStyle win theme = do
   mbFocused <- W.peek <$> gets windowset
   isWmStateUrgent <- (win `elem`) <$> readUrgents
@@ -268,7 +269,9 @@ decorationHandler deco theme decoRect widgetPlaces window x y button = do
         else go rest
 
 defaultPaintDecoration :: forall dstyle.
-                          (DecorationStyleEx dstyle Window, Style (Theme dstyle (Widget dstyle)) ~ SimpleStyle)
+                          (DecorationStyleEx dstyle Window,
+                           DecorationPaintingContext dstyle ~ XPaintingContext,
+                           Style (Theme dstyle (Widget dstyle)) ~ SimpleStyle)
                        => dstyle Window
                        -> Window
                        -> Dimension
