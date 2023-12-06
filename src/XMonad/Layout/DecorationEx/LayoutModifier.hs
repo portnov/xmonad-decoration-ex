@@ -97,7 +97,7 @@ instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier 
           createDecoWindowIfNeeded mbDecoWindow mbDecoRect =
             case (mbDecoWindow, mbDecoRect) of
               (Nothing, Just decoRect) -> do
-                decoWindow <- createDecoWindow theme decoRect
+                decoWindow <- createDecoWindow dstyle theme decoRect
                 return $ Just decoWindow
               _ -> return mbDecoWindow
 
@@ -204,7 +204,7 @@ createDecos theme dstyle shrinker font screenRect stack wrs ((w,r):xs) = do
   mbDecoRect <- decorateWindow dstyle theme screenRect stack wrs (w,r)
   case mbDecoRect of
     Just decoRect -> do
-      decoWindow <- createDecoWindow theme decoRect
+      decoWindow <- createDecoWindow dstyle theme decoRect
       widgetPlaces <- placeWidgets dstyle theme shrinker font decoRect w (themeWidgets theme)
       restDd <- createDecos theme dstyle shrinker font screenRect stack wrs xs
       let newDd = WindowDecoration w r (Just decoWindow) (Just decoRect) widgetPlaces
@@ -215,9 +215,9 @@ createDecos theme dstyle shrinker font screenRect stack wrs ((w,r):xs) = do
       return $ newDd : restDd
 createDecos _ _ _ _ _ _ _ [] = return []
 
-createDecoWindow :: ThemeAttributes theme => theme -> Rectangle -> X Window
-createDecoWindow theme rect = do
-  let mask = Just (exposureMask .|. buttonPressMask)
+createDecoWindow :: (DecorationStyleEx dstyle Window) => dstyle Window -> ThemeW dstyle -> Rectangle -> X Window
+createDecoWindow dstyle theme rect = do
+  let mask = Just $ decorationXEventMask dstyle
   w <- createNewWindow rect mask (defaultBgColor theme) True
   d <- asks display
   io $ setClassHint d w (ClassHint "xmonad-decoration" "xmonad")

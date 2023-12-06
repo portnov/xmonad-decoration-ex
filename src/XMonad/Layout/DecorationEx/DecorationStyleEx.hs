@@ -80,6 +80,9 @@ class (Read (dstyle a), Show (dstyle a),
 
     placeWidgets :: Shrinker shrinker => dstyle a -> ThemeW dstyle -> shrinker -> XMonadFont -> Rectangle -> Window -> WidgetLayout (Widget dstyle) -> X [WidgetPlace]
 
+    decorationXEventMask :: dstyle a -> EventMask
+    decorationXEventMask _ = exposureMask .|. buttonPressMask
+
     decorationEventHookEx :: Shrinker shrinker => dstyle a -> ThemeW dstyle -> DecorationStateEx -> shrinker -> Event -> X ()
     decorationEventHookEx = handleMouseFocusDrag
 
