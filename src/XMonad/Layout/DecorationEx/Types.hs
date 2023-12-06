@@ -8,7 +8,6 @@
 
 module XMonad.Layout.DecorationEx.Types (
     WindowDecoration (..)
-  , DecorationStateEx (..)
   , WindowCommand (..)
   , DecorationWidget (..)
   , WidgetPlace (..)
@@ -35,11 +34,6 @@ data WindowDecoration = WindowDecoration {
   , wdDecoWindow :: Maybe Window
   , wdDecoRect :: Maybe Rectangle
   , wdWidgets :: [WidgetPlace]
-  }
-
-data DecorationStateEx = DecorationStateEx {
-    dsFont :: XMonadFont
-  , dsDecorations :: [WindowDecoration]
   }
 
 class (Read cmd, Show cmd) => WindowCommand cmd where

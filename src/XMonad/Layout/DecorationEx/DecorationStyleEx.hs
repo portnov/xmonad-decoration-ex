@@ -7,6 +7,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 module XMonad.Layout.DecorationEx.DecorationStyleEx where
 
@@ -36,7 +37,7 @@ instance (Show widget, Read widget, Read (WidgetCommand widget), Show (WidgetCom
   themeFontName = exFontName
 
 data DrawData dstyle = DrawData {
-    ddFont :: XMonadFont
+    ddStyleState :: DecorationStyleState dstyle
   , ddStyle :: Style (Theme dstyle (Widget dstyle))
   , ddOrigWindow :: Window
   , ddWindowTitle :: String
@@ -46,6 +47,11 @@ data DrawData dstyle = DrawData {
   }
 
 type ThemeW dstyle = Theme dstyle (Widget dstyle)
+
+data DecorationLayoutState dstyle = DecorationLayoutState {
+    dsStyleState :: DecorationStyleState dstyle
+  , dsDecorations :: [WindowDecoration]
+  }
 
 class (Read (dstyle a), Show (dstyle a),
        Eq a,
@@ -58,6 +64,7 @@ class (Read (dstyle a), Show (dstyle a),
     type Theme dstyle :: * -> *
     type Widget dstyle
     type DecorationPaintingContext dstyle
+    type DecorationStyleState dstyle
 
     describeDecoration :: dstyle a -> String
 
@@ -77,14 +84,33 @@ class (Read (dstyle a), Show (dstyle a),
         -> W.Stack a -> [(a, Rectangle)] -> (a, Rectangle) -> X (Maybe Rectangle)
     decorateWindow dstyle theme r s wrs wr = return $ pureDecoration dstyle theme r s wrs wr
 
+    initializeState :: dstyle a -> ThemeW dstyle -> X (DecorationStyleState dstyle)
+    releaseStateResources :: dstyle a -> DecorationStyleState dstyle -> X ()
+
+
     calcWidgetPlace :: dstyle a -> DrawData dstyle -> Widget dstyle -> X WidgetPlace
 
-    placeWidgets :: Shrinker shrinker => dstyle a -> ThemeW dstyle -> shrinker -> XMonadFont -> Rectangle -> Window -> WidgetLayout (Widget dstyle) -> X [WidgetPlace]
+    placeWidgets :: Shrinker shrinker => dstyle a -> ThemeW dstyle -> shrinker -> DecorationStyleState dstyle -> Rectangle -> Window -> WidgetLayout (Widget dstyle) -> X [WidgetPlace]
+
+    getShrinkedWindowName :: Shrinker shrinker => dstyle a -> shrinker -> DecorationStyleState dstyle -> Window -> Dimension -> Dimension -> X String
+
+    default getShrinkedWindowName :: (Shrinker shrinker, DecorationStyleState dstyle ~ XMonadFont)
+                                  => dstyle a -> shrinker -> DecorationStyleState dstyle -> Window -> Dimension -> Dimension -> X String
+    getShrinkedWindowName dstyle shrinker font win wh ht = do
+      -- xmonad-contrib #809
+      -- qutebrowser will happily shovel a 389K multiline string into @_NET_WM_NAME@
+      -- and the 'defaultShrinker' (a) doesn't handle multiline strings well (b) is
+      -- quadratic due to using 'init'
+      nw  <- fmap (take 2048 . takeWhile (/= '\n') . show) (getName win)
+      let s = shrinkIt shrinker
+      dpy <- asks display
+      shrinkWhile s (\n -> do size <- io $ textWidthXMF dpy font n
+                              return $ size > fromIntegral wh - fromIntegral (ht `div` 2)) nw
 
     decorationXEventMask :: dstyle a -> EventMask
     decorationXEventMask _ = exposureMask .|. buttonPressMask
 
-    decorationEventHookEx :: Shrinker shrinker => dstyle a -> ThemeW dstyle -> DecorationStateEx -> shrinker -> Event -> X ()
+    decorationEventHookEx :: Shrinker shrinker => dstyle a -> ThemeW dstyle -> DecorationLayoutState dstyle -> shrinker -> Event -> X ()
     decorationEventHookEx = handleMouseFocusDrag
 
     handleDecorationClick :: dstyle a -> ThemeW dstyle -> Rectangle -> [Rectangle] -> Window -> Int -> Int -> Int -> X Bool
@@ -173,13 +199,13 @@ alignCenter dstyle dd widgets = do
           rect' = rect {rect_x = rect_x rect + fi x0}
       in  place {wpRectangle = rect'}
 
-mkDrawData :: (Shrinker shrinker, ThemeAttributes (ThemeW dstyle), HasWidgets (Theme dstyle) (Widget dstyle))
-           => shrinker -> ThemeW dstyle -> XMonadFont -> Window -> Rectangle -> X (DrawData dstyle)
-mkDrawData shrinker theme font origWindow decoRect@(Rectangle _ _ wh ht) = do
-    name <- getShrinkedWindowName shrinker font origWindow wh ht
+mkDrawData :: (DecorationStyleEx dstyle a, Shrinker shrinker, ThemeAttributes (ThemeW dstyle), HasWidgets (Theme dstyle) (Widget dstyle))
+           => dstyle a -> shrinker -> ThemeW dstyle -> DecorationStyleState dstyle -> Window -> Rectangle -> X (DrawData dstyle)
+mkDrawData dstyle shrinker theme decoState origWindow decoRect@(Rectangle _ _ wh ht) = do
+    name <- getShrinkedWindowName dstyle shrinker decoState origWindow wh ht
     style <- selectWindowStyle theme origWindow
     return $ DrawData {
-                   ddFont = font,
+                   ddStyleState = decoState,
                    ddStyle = style,
                    ddOrigWindow = origWindow,
                    ddWindowTitle = name,
@@ -204,22 +230,10 @@ windowStyle win theme = do
           | focused == win -> exActive theme
           | otherwise -> exInactive theme
 
-getShrinkedWindowName :: Shrinker s => s -> XMonadFont -> Window -> Dimension -> Dimension -> X String
-getShrinkedWindowName shrinker font win wh ht = do
-  -- xmonad-contrib #809
-  -- qutebrowser will happily shovel a 389K multiline string into @_NET_WM_NAME@
-  -- and the 'defaultShrinker' (a) doesn't handle multiline strings well (b) is
-  -- quadratic due to using 'init'
-  nw  <- fmap (take 2048 . takeWhile (/= '\n') . show) (getName win)
-  let s = shrinkIt shrinker
-  dpy <- asks display
-  shrinkWhile s (\n -> do size <- io $ textWidthXMF dpy font n
-                          return $ size > fromIntegral wh - fromIntegral (ht `div` 2)) nw
-
 -- | Mouse focus and mouse drag are handled by the same function, this
 -- way we can start dragging unfocused windows too.
-handleMouseFocusDrag :: (DecorationStyleEx dstyle a, Shrinker shrinker) => dstyle a -> ThemeW dstyle -> DecorationStateEx -> shrinker -> Event -> X ()
-handleMouseFocusDrag ds theme (DecorationStateEx {dsDecorations, dsFont}) shrinker (ButtonEvent {ev_window, ev_x_root, ev_y_root, ev_event_type, ev_button})
+handleMouseFocusDrag :: (DecorationStyleEx dstyle a, Shrinker shrinker) => dstyle a -> ThemeW dstyle -> DecorationLayoutState dstyle -> shrinker -> Event -> X ()
+handleMouseFocusDrag ds theme (DecorationLayoutState {dsDecorations}) shrinker (ButtonEvent {ev_window, ev_x_root, ev_y_root, ev_event_type, ev_button})
     | ev_event_type == buttonPress
     , Just (WindowDecoration {..}) <- findDecoDataByDecoWindow ev_window dsDecorations = do
         let decoRect@(Rectangle dx dy _ _) = fromJust wdDecoRect
@@ -321,20 +335,20 @@ defaultPaintDecoration deco win windowWidth windowHeight dd = do
       io $ fillRectangle dpy pixmap gc x y w h
 
 defaultPlaceWidgets :: (Shrinker shrinker, DecorationStyleEx dstyle a, ThemeAttributes (ThemeW dstyle))
-                    => dstyle a -> ThemeW dstyle -> shrinker -> XMonadFont -> Rectangle -> Window -> WidgetLayout (Widget dstyle) -> X [WidgetPlace]
-defaultPlaceWidgets deco theme shrinker font decoRect window wlayout = do
+                    => dstyle a -> ThemeW dstyle -> shrinker -> DecorationStyleState dstyle -> Rectangle -> Window -> WidgetLayout (Widget dstyle) -> X [WidgetPlace]
+defaultPlaceWidgets dstyle theme shrinker decoStyle decoRect window wlayout = do
     let leftWidgets = wlLeft wlayout
         rightWidgets = wlRight wlayout
         centerWidgets = wlCenter wlayout
 
-    dd <- mkDrawData shrinker theme font window decoRect
+    dd <- mkDrawData dstyle shrinker theme decoStyle window decoRect
     let dd' = dd {ddDecoRect = pad (widgetsPadding theme) (ddDecoRect dd)}
-    rightRects <- alignRight deco dd' rightWidgets
-    leftRects <- alignLeft deco dd' leftWidgets
+    rightRects <- alignRight dstyle dd' rightWidgets
+    leftRects <- alignLeft dstyle dd' leftWidgets
     let leftWidgetsWidth = sum $ map (rect_width . wpRectangle) leftRects
         rightWidgetsWidth = sum $ map (rect_width . wpRectangle) rightRects
         dd'' = dd' {ddDecoRect = padCenter leftWidgetsWidth rightWidgetsWidth (ddDecoRect dd)}
-    centerRects <- alignCenter deco dd'' centerWidgets
+    centerRects <- alignCenter dstyle dd'' centerWidgets
     return $ leftRects ++ centerRects ++ rightRects
   where
     pad p (Rectangle x y w h) =

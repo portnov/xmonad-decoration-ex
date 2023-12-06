@@ -14,7 +14,6 @@ import qualified XMonad.StackSet as W
 import XMonad.Layout.LayoutModifier
 import XMonad.Layout.Decoration (Shrinker (..) )
 import XMonad.Layout.WindowArranger (diff, listFromList)
-import XMonad.Util.Font
 import XMonad.Util.Invisible
 import XMonad.Util.XUtils hiding (paintTextAndIcons)
 
@@ -27,7 +26,7 @@ import XMonad.Layout.DecorationEx.DecorationStyleEx
 -- to modify the layout by adding decorations according to a
 -- 'DecorationStyle'.
 data DecorationEx dstyle shrinker a =
-    DecorationEx (Invisible Maybe DecorationStateEx) shrinker (ThemeW dstyle) (dstyle a)
+    DecorationEx (Invisible Maybe (DecorationLayoutState dstyle)) shrinker (ThemeW dstyle) (dstyle a)
 
 deriving instance (Show (ThemeW dstyle), Show shrinker, Show (dstyle a)) => Show (DecorationEx dstyle shrinker a)
 deriving instance (Read (ThemeW dstyle), Read shrinker, Read (dstyle a)) => Read (DecorationEx dstyle shrinker a)
@@ -59,7 +58,7 @@ deriving instance (Read (ThemeW dstyle), Read shrinker, Read (dstyle a)) => Read
 -- methods to perform its tasks.
 instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier (DecorationEx dstyle shrinker) Window where
     redoLayout (DecorationEx (I (Just state)) shrinker theme dstyle) _ Nothing _ = do
-        releaseResources state
+        releaseResources dstyle state
         return ([], Just $ DecorationEx (I Nothing) shrinker theme dstyle)
     redoLayout _ _ Nothing _  = return ([], Nothing)
 
@@ -72,7 +71,7 @@ instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier 
                 toAdd = toadd a srcPairs
             deleteDecos toDel
             let decosToBeAdded = [WindowDecoration win rect Nothing Nothing [] | (win, rect) <- toAdd]
-            newDecorations <- resync (dsFont s) (decosToBeAdded ++ del_dwrs d decorations) srcPairs
+            newDecorations <- resync (dsStyleState s) (decosToBeAdded ++ del_dwrs d decorations) srcPairs
             processState (s {dsDecorations = newDecorations})
 
         where
@@ -101,20 +100,20 @@ instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier 
                 return $ Just decoWindow
               _ -> return mbDecoWindow
 
-          resync :: XMonadFont -> [WindowDecoration] -> [(Window,Rectangle)] -> X [WindowDecoration]
+          resync :: DecorationStyleState dstyle -> [WindowDecoration] -> [(Window,Rectangle)] -> X [WindowDecoration]
           resync _ _ [] = return []
-          resync font dd ((window,rect):xs) =
+          resync decoState dd ((window,rect):xs) =
             case  window `elemIndex` getOrigWindows dd of
               Just i  -> do
                 mbDecoRect <- decorateWindow dstyle theme screenRect stack srcPairs (window,rect)
                 widgetPlaces <- case mbDecoRect of
                                   Nothing -> return []
-                                  Just decoRect -> placeWidgets dstyle theme shrinker font decoRect window (themeWidgets theme)
+                                  Just decoRect -> placeWidgets dstyle theme shrinker decoState decoRect window (themeWidgets theme)
                 mbDecoWindow  <- createDecoWindowIfNeeded (findDecoWindow i dd) mbDecoRect
                 let newDd = WindowDecoration window rect mbDecoWindow mbDecoRect widgetPlaces
-                restDd <- resync font dd xs
+                restDd <- resync decoState dd xs
                 return $ newDd : restDd
-              Nothing -> resync font dd xs
+              Nothing -> resync decoState dd xs
 
           -- We drop any windows that are *precisely* stacked underneath
           -- another window: these must be intended to be tabbed!
@@ -133,11 +132,11 @@ instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier 
           dwrs_to_wrs :: [WindowDecoration] -> [(Window, Rectangle)]
           dwrs_to_wrs = removeTabbed [] . foldr insertDwr []
 
-          processState :: DecorationStateEx -> X ([(Window, Rectangle)], Maybe (DecorationEx dstyle shrinker Window))
+          processState :: DecorationLayoutState dstyle -> X ([(Window, Rectangle)], Maybe (DecorationEx dstyle shrinker Window))
           processState st = do
             let decorations = dsDecorations st
             showDecos decorations
-            updateDecos dstyle shrinker theme (dsFont st) decorations
+            updateDecos dstyle shrinker theme (dsStyleState st) decorations
             return (dwrs_to_wrs decorations, Just (DecorationEx (I (Just (st {dsDecorations = decorations}))) shrinker theme dstyle))
 
     handleMess (DecorationEx (I (Just st)) shrinker theme dstyle) m
@@ -149,11 +148,11 @@ instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier 
             hideDecos $ dsDecorations st
             return Nothing
 --         | Just (SetTheme nt) <- fromMessage m = do
---             releaseResources st
+--             releaseResources dstyle st
 --             let t' = themeEx nt
 --             return $ Just $ DecorationEx (I Nothing) shrinker t' dstyle
         | Just ReleaseResources <- fromMessage m = do
-            releaseResources st
+            releaseResources dstyle st
             return $ Just $ DecorationEx (I Nothing) shrinker theme  dstyle
     handleMess _ _ = return Nothing
 
@@ -161,12 +160,12 @@ instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier 
 
 -- | By default 'Decoration' handles 'PropertyEvent' and 'ExposeEvent'
 -- only.
-handleEvent :: (Shrinker shrinker, DecorationStyleEx dstyle Window) => dstyle Window -> shrinker -> ThemeW dstyle -> DecorationStateEx -> Event -> X ()
-handleEvent dstyle shrinker theme (DecorationStateEx {..}) e
+handleEvent :: (Shrinker shrinker, DecorationStyleEx dstyle Window) => dstyle Window -> shrinker -> ThemeW dstyle -> DecorationLayoutState dstyle -> Event -> X ()
+handleEvent dstyle shrinker theme (DecorationLayoutState {..}) e
     | PropertyEvent {ev_window = w} <- e
-    , Just i <- w `elemIndex` map wdOrigWindow dsDecorations = updateDeco dstyle shrinker theme dsFont (dsDecorations !! i)
+    , Just i <- w `elemIndex` map wdOrigWindow dsDecorations = updateDeco dstyle shrinker theme dsStyleState (dsDecorations !! i)
     | ExposeEvent   {ev_window = w} <- e
-    , Just i <- w `elemIndex` mapMaybe wdDecoWindow dsDecorations = updateDeco dstyle shrinker theme dsFont (dsDecorations !! i)
+    , Just i <- w `elemIndex` mapMaybe wdDecoWindow dsDecorations = updateDeco dstyle shrinker theme dsStyleState (dsDecorations !! i)
 handleEvent _ _ _ _ _ = return ()
 
 -- | Initialize the 'DecorationState' by initializing the font
@@ -177,17 +176,17 @@ initState :: (DecorationStyleEx dstyle Window, Shrinker shrinker)
           -> shrinker
           -> Rectangle
           -> W.Stack Window
-          -> [(Window,Rectangle)] -> X DecorationStateEx
+          -> [(Window,Rectangle)] -> X (DecorationLayoutState dstyle)
 initState theme dstyle shrinker screenRect stack wrs = do
-  font <- initXMF (themeFontName theme)
-  decorations <- createDecos theme dstyle shrinker font screenRect stack wrs wrs
-  return $ DecorationStateEx font decorations
+  styleState <- initializeState dstyle theme
+  decorations <- createDecos theme dstyle shrinker styleState screenRect stack wrs wrs
+  return $ DecorationLayoutState styleState decorations
 
 -- | Delete windows stored in the state and release the font structure.
-releaseResources :: DecorationStateEx -> X ()
-releaseResources st = do
+releaseResources :: DecorationStyleEx dstyle Window => dstyle Window -> DecorationLayoutState dstyle -> X ()
+releaseResources dstyle st = do
   deleteDecos (dsDecorations st)
-  releaseXMF  (dsFont st)
+  releaseStateResources dstyle (dsStyleState st)
 
 -- | Create the decoration windows of a list of windows and their
 -- rectangles, by calling the 'decorate' method of the
@@ -196,21 +195,21 @@ createDecos :: (DecorationStyleEx dstyle Window, Shrinker shrinker)
             => ThemeW dstyle
             -> dstyle Window
             -> shrinker
-            -> XMonadFont
+            -> DecorationStyleState dstyle
             -> Rectangle
             -> W.Stack Window
             -> [(Window,Rectangle)] -> [(Window,Rectangle)] -> X [WindowDecoration]
-createDecos theme dstyle shrinker font screenRect stack wrs ((w,r):xs) = do
+createDecos theme dstyle shrinker decoState screenRect stack wrs ((w,r):xs) = do
   mbDecoRect <- decorateWindow dstyle theme screenRect stack wrs (w,r)
   case mbDecoRect of
     Just decoRect -> do
       decoWindow <- createDecoWindow dstyle theme decoRect
-      widgetPlaces <- placeWidgets dstyle theme shrinker font decoRect w (themeWidgets theme)
-      restDd <- createDecos theme dstyle shrinker font screenRect stack wrs xs
+      widgetPlaces <- placeWidgets dstyle theme shrinker decoState decoRect w (themeWidgets theme)
+      restDd <- createDecos theme dstyle shrinker decoState screenRect stack wrs xs
       let newDd = WindowDecoration w r (Just decoWindow) (Just decoRect) widgetPlaces
       return $ newDd : restDd
     Nothing -> do
-      restDd <- createDecos theme dstyle shrinker font screenRect stack wrs xs
+      restDd <- createDecos theme dstyle shrinker decoState screenRect stack wrs xs
       let newDd = WindowDecoration w r Nothing Nothing []
       return $ newDd : restDd
 createDecos _ _ _ _ _ _ _ [] = return []
@@ -234,25 +233,18 @@ deleteDecos :: [WindowDecoration] -> X ()
 deleteDecos = deleteWindows . mapMaybe wdDecoWindow
 
 updateDecos :: (Shrinker shrinker, DecorationStyleEx dstyle Window)
-            => dstyle Window -> shrinker -> ThemeW dstyle -> XMonadFont -> [WindowDecoration] -> X ()
-updateDecos dstyle shrinker theme font = mapM_ $ updateDeco dstyle shrinker theme font
-
-withFont :: String -> (XMonadFont -> X()) -> X ()
-withFont fontName actions = do
-  font <- initXMF fontName
-  result <- actions font
-  releaseXMF font
-  return result
+            => dstyle Window -> shrinker -> ThemeW dstyle -> DecorationStyleState dstyle -> [WindowDecoration] -> X ()
+updateDecos dstyle shrinker theme decoState = mapM_ $ updateDeco dstyle shrinker theme decoState
 
 -- | Update a decoration window given a shrinker, a theme, the font
 -- structure and the needed 'Rectangle's
-updateDeco :: (Shrinker shrinker, DecorationStyleEx dstyle Window) => dstyle Window -> shrinker -> ThemeW dstyle -> XMonadFont -> WindowDecoration -> X ()
-updateDeco dstyle shrinker theme font wd =
+updateDeco :: (Shrinker shrinker, DecorationStyleEx dstyle Window) => dstyle Window -> shrinker -> ThemeW dstyle -> DecorationStyleState dstyle -> WindowDecoration -> X ()
+updateDeco dstyle shrinker theme decoState wd =
   case (wdDecoWindow wd, wdDecoRect wd) of
     (Just decoWindow, Just decoRect@(Rectangle _ _ wh ht)) -> do
       let origWin = wdOrigWindow wd
-      drawData <- mkDrawData shrinker theme font origWin decoRect
-      widgetPlaces <- placeWidgets dstyle theme shrinker font decoRect (wdOrigWindow wd) (themeWidgets theme)
+      drawData <- mkDrawData dstyle shrinker theme decoState origWin decoRect
+      widgetPlaces <- placeWidgets dstyle theme shrinker decoState decoRect (wdOrigWindow wd) (themeWidgets theme)
       -- io $ print widgetPlaces
       paintDecoration dstyle decoWindow wh ht $ drawData {ddWidgetPlaces = widgetPlaces}
     (Just decoWindow, Nothing) -> hideWindow decoWindow

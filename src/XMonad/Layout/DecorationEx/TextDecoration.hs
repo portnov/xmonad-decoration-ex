@@ -31,6 +31,7 @@ instance DecorationStyleEx TextDecoration Window where
   type Theme TextDecoration = GenericTheme SimpleStyle
   type Widget TextDecoration = StandardWidget
   type DecorationPaintingContext TextDecoration = XPaintingContext
+  type DecorationStyleState TextDecoration = XMonadFont
 
   describeDecoration _ = "TextDecoration"
 
@@ -40,11 +41,15 @@ instance DecorationStyleEx TextDecoration Window where
 
   paintDecoration = defaultPaintDecoration
 
+  initializeState dstyle theme = initXMF (themeFontName theme)
+  releaseStateResources dstyle = releaseXMF
+
   placeWidgets = defaultPlaceWidgets
 
 paintTextWidget :: (Widget dstyle ~ StandardWidget,
                     Style (ThemeW dstyle) ~ SimpleStyle,
                     DecorationPaintingContext dstyle ~ XPaintingContext,
+                    DecorationStyleState dstyle ~ XMonadFont,
                     DecorationStyleEx dstyle Window)
                 => dstyle Window
                 -> DecorationPaintingContext dstyle
@@ -57,9 +62,10 @@ paintTextWidget deco (dpy, pixmap, gc) place dd widget = do
         x = rect_x (wpRectangle place)
         y = wpTextYPosition place
     str <- widgetString dd widget
-    printStringXMF dpy pixmap (ddFont dd) gc (sTextColor style) (sTextBgColor style) x y str
+    printStringXMF dpy pixmap (ddStyleState dd) gc (sTextColor style) (sTextBgColor style) x y str
 
 calcTextWidgetPlace :: (Widget dstyle ~ StandardWidget,
+                        DecorationStyleState dstyle ~ XMonadFont,
                         DecorationStyleEx dstyle Window)
                     => dstyle Window
                     -> DrawData dstyle
@@ -69,9 +75,9 @@ calcTextWidgetPlace deco dd widget = do
     str <- widgetString dd widget
     let w = rect_width (ddDecoRect dd)
         h = rect_height (ddDecoRect dd)
-        font = ddFont dd
+        font = ddStyleState dd
     withDisplay $ \dpy -> do
-      width <- fi <$> textWidthXMF dpy (ddFont dd) str
+      width <- fi <$> textWidthXMF dpy (ddStyleState dd) str
       (a, d) <- textExtentsXMF font str
       let height = a + d
           y = fi $ (h - fi height) `div` 2

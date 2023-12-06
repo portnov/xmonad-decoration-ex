@@ -10,6 +10,7 @@ import qualified XMonad.StackSet as W
 import XMonad.Prelude
 import XMonad.Layout.Decoration (ModifiedLayout, Shrinker (..))
 import XMonad.Util.Types
+import XMonad.Util.Font
 
 import XMonad.Layout.DecorationEx.LayoutModifier
 import XMonad.Layout.DecorationEx.Types
@@ -24,8 +25,12 @@ instance DecorationStyleEx TabbedTextDecoration Window where
   type Theme TabbedTextDecoration = GenericTheme SimpleStyle
   type Widget TabbedTextDecoration = StandardWidget
   type DecorationPaintingContext TabbedTextDecoration = XPaintingContext
+  type DecorationStyleState TabbedTextDecoration = XMonadFont
 
   describeDecoration (TabbedTextDecoration _) = "TabbedText"
+
+  initializeState dstyle theme = initXMF (themeFontName theme)
+  releaseStateResources dstyle = releaseXMF
 
   calcWidgetPlace = calcTextWidgetPlace
 

@@ -9,6 +9,7 @@ import XMonad
 import qualified XMonad.StackSet as W
 import XMonad.Layout.LayoutModifier
 import qualified XMonad.Layout.Decoration as D
+import XMonad.Util.Font
 
 import XMonad.Layout.DecorationEx.LayoutModifier
 import XMonad.Layout.DecorationEx.Types
@@ -23,8 +24,12 @@ instance DecorationStyleEx DwmTextDecoration Window where
   type Theme DwmTextDecoration = GenericTheme SimpleStyle
   type Widget DwmTextDecoration = StandardWidget
   type DecorationPaintingContext DwmTextDecoration = XPaintingContext
+  type DecorationStyleState DwmTextDecoration = XMonadFont
 
   describeDecoration (DwmTextDecoration _) = "DwmText"
+
+  initializeState dstyle theme = initXMF (themeFontName theme)
+  releaseStateResources dstyle = releaseXMF
 
   pureDecoration (DwmTextDecoration showForFocused) theme screenRect stack wrs (w, Rectangle x y windowWidth windowHeight) =
     let (decoWidth, decoHeight) = decorationSize theme
