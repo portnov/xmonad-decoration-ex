@@ -27,76 +27,88 @@ import XMonad.Hooks.UrgencyHook
 
 import XMonad.Layout.DecorationEx.Types
 
+instance HasDecorationSize (ThemeEx widget) where
+  decorationSize t = (exDecoWidth t, exDecoHeight t)
+
 instance (Show widget, Read widget, Read (WidgetCommand widget), Show (WidgetCommand widget))
         => ThemeAttributes (ThemeEx widget) where
   type Style (ThemeEx widget) = SimpleStyle
-  selectWindowStyle theme w = windowStyle w theme
+  selectWindowStyle theme w = genericWindowStyle w theme
   defaultBgColor t = sBgColor $ exInactive t
-  decorationSize t = (exDecoWidth t, exDecoHeight t)
   widgetsPadding = exPadding
   themeFontName = exFontName
 
-data DrawData dstyle = DrawData {
-    ddStyleState :: DecorationStyleState dstyle
-  , ddStyle :: Style (Theme dstyle (Widget dstyle))
+data DrawData engine = DrawData {
+    ddStyleState :: DecorationStyleState engine
+  , ddStyle :: Style (Theme engine (Widget engine))
   , ddOrigWindow :: Window
   , ddWindowTitle :: String
   , ddDecoRect :: Rectangle
-  , ddLabels :: WidgetLayout (Widget dstyle)
+  , ddLabels :: WidgetLayout (Widget engine)
   , ddWidgetPlaces :: [WidgetPlace]
   }
 
-type ThemeW dstyle = Theme dstyle (Widget dstyle)
+type ThemeW engine = Theme engine (Widget engine)
 
-data DecorationLayoutState dstyle = DecorationLayoutState {
-    dsStyleState :: DecorationStyleState dstyle
+data DecorationLayoutState engine = DecorationLayoutState {
+    dsStyleState :: DecorationStyleState engine
   , dsDecorations :: [WindowDecoration]
   }
 
-class (Read (dstyle a), Show (dstyle a),
-       Eq a,
-       DecorationWidget (Widget dstyle),
-       HasWidgets (Theme dstyle) (Widget dstyle),
-       ClickHandler (Theme dstyle) (Widget dstyle),
-       ThemeAttributes (Theme dstyle (Widget dstyle)))
-    => DecorationStyleEx dstyle a where
+class (Read (geom a), Show (geom a),
+       Eq a)
+    => DecorationGeometry geom a where
 
-    type Theme dstyle :: * -> *
-    type Widget dstyle
-    type DecorationPaintingContext dstyle
-    type DecorationStyleState dstyle
+    describeGeometry :: geom a -> String
 
-    describeDecoration :: dstyle a -> String
-
-    shrinkWindow :: dstyle a -> Rectangle -> Rectangle -> Rectangle
+    shrinkWindow :: geom a -> Rectangle -> Rectangle -> Rectangle
     shrinkWindow _ (Rectangle _ _ _ dh) (Rectangle x y w h) = Rectangle x (y + fi dh) w (h - dh)
 
     -- | The pure version of the main method, 'decorate'.
-    pureDecoration :: dstyle a -> ThemeW dstyle -> Rectangle
+    pureDecoration :: geom a -> DecorationSize -> Rectangle
                    -> W.Stack a -> [(a,Rectangle)] -> (a,Rectangle) -> Maybe Rectangle
-    pureDecoration _ theme _ s _ (w, Rectangle x y windowWidth windowHeight) =
-      let (decoWidth, decoHeight) = decorationSize theme
-      in  if isInStack s w && (decoHeight < windowHeight)
-            then Just $ Rectangle x y windowWidth decoHeight
-            else Nothing
+    pureDecoration _ (decoWidth, decoHeight) _ s _ (w, Rectangle x y windowWidth windowHeight) =
+      if isInStack s w && (decoHeight < windowHeight)
+        then Just $ Rectangle x y windowWidth decoHeight
+        else Nothing
 
-    decorateWindow :: dstyle a -> ThemeW dstyle -> Rectangle
+    decorateWindow :: geom a -> DecorationSize -> Rectangle
         -> W.Stack a -> [(a, Rectangle)] -> (a, Rectangle) -> X (Maybe Rectangle)
-    decorateWindow dstyle theme r s wrs wr = return $ pureDecoration dstyle theme r s wrs wr
+    decorateWindow geom size r s wrs wr = return $ pureDecoration geom size r s wrs wr
 
-    initializeState :: dstyle a -> ThemeW dstyle -> X (DecorationStyleState dstyle)
-    releaseStateResources :: dstyle a -> DecorationStyleState dstyle -> X ()
+data DefaultGeometry a = DefaultGeometry
+  deriving (Read, Show)
 
+instance Eq a => DecorationGeometry DefaultGeometry a where
+  describeGeometry _ = "FullWidth"
 
-    calcWidgetPlace :: dstyle a -> DrawData dstyle -> Widget dstyle -> X WidgetPlace
+class (Read (engine a), Show (engine a),
+       Eq a,
+       DecorationWidget (Widget engine),
+       HasWidgets (Theme engine) (Widget engine),
+       ClickHandler (Theme engine) (Widget engine),
+       ThemeAttributes (Theme engine (Widget engine)))
+    => DecorationEngine engine a where
 
-    placeWidgets :: Shrinker shrinker => dstyle a -> ThemeW dstyle -> shrinker -> DecorationStyleState dstyle -> Rectangle -> Window -> WidgetLayout (Widget dstyle) -> X [WidgetPlace]
+    type Theme engine :: * -> *
+    type Widget engine
+    type DecorationPaintingContext engine
+    type DecorationStyleState engine
 
-    getShrinkedWindowName :: Shrinker shrinker => dstyle a -> shrinker -> DecorationStyleState dstyle -> Window -> Dimension -> Dimension -> X String
+    describeEngine :: engine a -> String
 
-    default getShrinkedWindowName :: (Shrinker shrinker, DecorationStyleState dstyle ~ XMonadFont)
-                                  => dstyle a -> shrinker -> DecorationStyleState dstyle -> Window -> Dimension -> Dimension -> X String
-    getShrinkedWindowName dstyle shrinker font win wh ht = do
+    initializeState :: engine a -> geom a -> ThemeW engine -> X (DecorationStyleState engine)
+    releaseStateResources :: engine a -> DecorationStyleState engine -> X ()
+
+    calcWidgetPlace :: engine a -> DrawData engine -> Widget engine -> X WidgetPlace
+
+    placeWidgets :: Shrinker shrinker => engine a -> ThemeW engine -> shrinker -> DecorationStyleState engine -> Rectangle -> Window -> WidgetLayout (Widget engine) -> X [WidgetPlace]
+
+    getShrinkedWindowName :: Shrinker shrinker => engine a -> shrinker -> DecorationStyleState engine -> Window -> Dimension -> Dimension -> X String
+
+    default getShrinkedWindowName :: (Shrinker shrinker, DecorationStyleState engine ~ XMonadFont)
+                                  => engine a -> shrinker -> DecorationStyleState engine -> Window -> Dimension -> Dimension -> X String
+    getShrinkedWindowName engine shrinker font win wh ht = do
       -- xmonad-contrib #809
       -- qutebrowser will happily shovel a 389K multiline string into @_NET_WM_NAME@
       -- and the 'defaultShrinker' (a) doesn't handle multiline strings well (b) is
@@ -107,20 +119,20 @@ class (Read (dstyle a), Show (dstyle a),
       shrinkWhile s (\n -> do size <- io $ textWidthXMF dpy font n
                               return $ size > fromIntegral wh - fromIntegral (ht `div` 2)) nw
 
-    decorationXEventMask :: dstyle a -> EventMask
+    decorationXEventMask :: engine a -> EventMask
     decorationXEventMask _ = exposureMask .|. buttonPressMask
 
-    decorationEventHookEx :: Shrinker shrinker => dstyle a -> ThemeW dstyle -> DecorationLayoutState dstyle -> shrinker -> Event -> X ()
+    decorationEventHookEx :: Shrinker shrinker => engine a -> ThemeW engine -> DecorationLayoutState engine -> shrinker -> Event -> X ()
     decorationEventHookEx = handleMouseFocusDrag
 
-    handleDecorationClick :: dstyle a -> ThemeW dstyle -> Rectangle -> [Rectangle] -> Window -> Int -> Int -> Int -> X Bool
+    handleDecorationClick :: engine a -> ThemeW engine -> Rectangle -> [Rectangle] -> Window -> Int -> Int -> Int -> X Bool
     handleDecorationClick = decorationHandler
 
-    decorationWhileDraggingHook :: dstyle a -> CInt -> CInt -> (Window, Rectangle) -> Position -> Position -> X ()
+    decorationWhileDraggingHook :: engine a -> CInt -> CInt -> (Window, Rectangle) -> Position -> Position -> X ()
     decorationWhileDraggingHook _ = handleDraggingInProgress
 
     -- | This hoook is called after a window has been dragged using the decoration.
-    decorationAfterDraggingHook :: dstyle a -> (Window, Rectangle) -> Window -> X ()
+    decorationAfterDraggingHook :: engine a -> (Window, Rectangle) -> Window -> X ()
     decorationAfterDraggingHook _ds (w, _r) decoWin = do
       focus w
       hasCrossed <- handleScreenCrossing w decoWin
@@ -128,10 +140,10 @@ class (Read (dstyle a), Show (dstyle a),
         sendMessage DraggingStopped
         performWindowSwitching w
 
-    paintDecoration :: dstyle a -> a -> Dimension -> Dimension -> DrawData dstyle -> X()
+    paintDecoration :: engine a -> a -> Dimension -> Dimension -> DrawData engine -> X()
     -- FIXME: Передавать не DrawData (со списком остальных виджетов зачем-то),
     -- а более скромную структуру
-    paintWidget :: dstyle a -> DecorationPaintingContext dstyle -> WidgetPlace -> DrawData dstyle -> Widget dstyle -> X ()
+    paintWidget :: engine a -> DecorationPaintingContext engine -> WidgetPlace -> DrawData engine -> Widget engine -> X ()
 
 handleDraggingInProgress :: CInt -> CInt -> (Window, Rectangle) -> Position -> Position -> X ()
 handleDraggingInProgress ex ey (mainw, r) x y = do
@@ -160,9 +172,9 @@ performWindowSwitching win =
             | x == b    = a
             | otherwise = x
 
-alignLeft :: forall dstyle a. DecorationStyleEx dstyle a => dstyle a -> DrawData dstyle -> [Widget dstyle] -> X [WidgetPlace]
-alignLeft dstyle dd widgets = do
-    places <- mapM (calcWidgetPlace dstyle dd) widgets
+alignLeft :: forall engine a. DecorationEngine engine a => engine a -> DrawData engine -> [Widget engine] -> X [WidgetPlace]
+alignLeft engine dd widgets = do
+    places <- mapM (calcWidgetPlace engine dd) widgets
     let places' = go (rect_x $ ddDecoRect dd) places
     return places'
   where
@@ -174,9 +186,9 @@ alignLeft dstyle dd widgets = do
           place' = place {wpRectangle = rect'}
       in  place' : go (x' + fi (rect_width rect)) places
 
-alignRight :: forall dstyle a. DecorationStyleEx dstyle a => dstyle a -> DrawData dstyle -> [Widget dstyle] -> X [WidgetPlace]
-alignRight dstyle dd widgets = do
-    places <- mapM (calcWidgetPlace dstyle dd) widgets
+alignRight :: forall engine a. DecorationEngine engine a => engine a -> DrawData engine -> [Widget engine] -> X [WidgetPlace]
+alignRight engine dd widgets = do
+    places <- mapM (calcWidgetPlace engine dd) widgets
     return $ reverse $ go (rect_width $ ddDecoRect dd) places
   where
     go _ [] = []
@@ -187,9 +199,9 @@ alignRight dstyle dd widgets = do
           place' = place {wpRectangle = rect'}
       in  place' : go x' places
 
-alignCenter :: forall dstyle a. DecorationStyleEx dstyle a => dstyle a -> DrawData dstyle -> [Widget dstyle] -> X [WidgetPlace]
-alignCenter dstyle dd widgets = do
-    places <- alignLeft dstyle dd widgets
+alignCenter :: forall engine a. DecorationEngine engine a => engine a -> DrawData engine -> [Widget engine] -> X [WidgetPlace]
+alignCenter engine dd widgets = do
+    places <- alignLeft engine dd widgets
     let totalWidth = sum $ map (rect_width . wpRectangle) places
         x0 = (rect_width (ddDecoRect dd) - fi totalWidth) `div` 2
     return $ map (shift x0) places
@@ -199,10 +211,10 @@ alignCenter dstyle dd widgets = do
           rect' = rect {rect_x = rect_x rect + fi x0}
       in  place {wpRectangle = rect'}
 
-mkDrawData :: (DecorationStyleEx dstyle a, Shrinker shrinker, ThemeAttributes (ThemeW dstyle), HasWidgets (Theme dstyle) (Widget dstyle))
-           => dstyle a -> shrinker -> ThemeW dstyle -> DecorationStyleState dstyle -> Window -> Rectangle -> X (DrawData dstyle)
-mkDrawData dstyle shrinker theme decoState origWindow decoRect@(Rectangle _ _ wh ht) = do
-    name <- getShrinkedWindowName dstyle shrinker decoState origWindow wh ht
+mkDrawData :: (DecorationEngine engine a, Shrinker shrinker, ThemeAttributes (ThemeW engine), HasWidgets (Theme engine) (Widget engine))
+           => engine a -> shrinker -> ThemeW engine -> DecorationStyleState engine -> Window -> Rectangle -> X (DrawData engine)
+mkDrawData engine shrinker theme decoState origWindow decoRect@(Rectangle _ _ wh ht) = do
+    name <- getShrinkedWindowName engine shrinker decoState origWindow wh ht
     style <- selectWindowStyle theme origWindow
     return $ DrawData {
                    ddStyleState = decoState,
@@ -214,25 +226,33 @@ mkDrawData dstyle shrinker theme decoState origWindow decoRect@(Rectangle _ _ wh
                    ddWidgetPlaces = []
                   }
 
-windowStyle :: Window -> GenericTheme style widget -> X style
-windowStyle win theme = do
+genericWindowStyle :: Window -> GenericTheme style widget -> X style
+genericWindowStyle win theme = do
+  styleType <- windowStyleType win
+  return $ case styleType of
+             ActiveWindow -> exActive theme
+             InactiveWindow -> exInactive theme
+             UrgentWindow -> exUrgent theme
+
+windowStyleType :: Window -> X ThemeStyleType
+windowStyleType win = do
   mbFocused <- W.peek <$> gets windowset
   isWmStateUrgent <- (win `elem`) <$> readUrgents
   isUrgencyBitSet <- withDisplay $ \dpy -> do
                        hints <- io $ getWMHints dpy win
                        return $ wmh_flags hints `testBit` urgencyHintBit
   if isWmStateUrgent || isUrgencyBitSet
-    then return $ exUrgent theme
+    then return UrgentWindow
     else return $
       case mbFocused of
-        Nothing -> exInactive theme
+        Nothing -> InactiveWindow
         Just focused
-          | focused == win -> exActive theme
-          | otherwise -> exInactive theme
+          | focused == win -> ActiveWindow
+          | otherwise -> InactiveWindow
 
 -- | Mouse focus and mouse drag are handled by the same function, this
 -- way we can start dragging unfocused windows too.
-handleMouseFocusDrag :: (DecorationStyleEx dstyle a, Shrinker shrinker) => dstyle a -> ThemeW dstyle -> DecorationLayoutState dstyle -> shrinker -> Event -> X ()
+handleMouseFocusDrag :: (DecorationEngine engine a, Shrinker shrinker) => engine a -> ThemeW engine -> DecorationLayoutState engine -> shrinker -> Event -> X ()
 handleMouseFocusDrag ds theme (DecorationLayoutState {dsDecorations}) shrinker (ButtonEvent {ev_window, ev_x_root, ev_y_root, ev_event_type, ev_button})
     | ev_event_type == buttonPress
     , Just (WindowDecoration {..}) <- findDecoDataByDecoWindow ev_window dsDecorations = do
@@ -251,11 +271,11 @@ handleMouseFocusDrag _ _ _ _ _ = return ()
 findDecoDataByDecoWindow :: Window -> [WindowDecoration] -> Maybe WindowDecoration
 findDecoDataByDecoWindow decoWin = find (\dd -> wdDecoWindow dd == Just decoWin)
 
-decorationHandler :: forall dstyle a.
-                     (DecorationStyleEx dstyle a,
-                      ClickHandler (Theme dstyle) (Widget dstyle))
-                  => dstyle a
-                  -> ThemeW dstyle
+decorationHandler :: forall engine a.
+                     (DecorationEngine engine a,
+                      ClickHandler (Theme engine) (Widget engine))
+                  => engine a
+                  -> ThemeW engine
                   -> Rectangle
                   -> [Rectangle]
                   -> Window
@@ -273,7 +293,7 @@ decorationHandler deco theme decoRect widgetPlaces window x y button = do
                return True
              Nothing -> return False
   where
-    go :: [(Widget dstyle, Rectangle)] -> X Bool
+    go :: [(Widget engine, Rectangle)] -> X Bool
     go [] = return False
     go ((w, rect) : rest) = do
       if pointWithin (fi x) (fi y) rect
@@ -282,15 +302,15 @@ decorationHandler deco theme decoRect widgetPlaces window x y button = do
           return True
         else go rest
 
-defaultPaintDecoration :: forall dstyle.
-                          (DecorationStyleEx dstyle Window,
-                           DecorationPaintingContext dstyle ~ XPaintingContext,
-                           Style (Theme dstyle (Widget dstyle)) ~ SimpleStyle)
-                       => dstyle Window
+defaultPaintDecoration :: forall engine.
+                          (DecorationEngine engine Window,
+                           DecorationPaintingContext engine ~ XPaintingContext,
+                           Style (Theme engine (Widget engine)) ~ SimpleStyle)
+                       => engine Window
                        -> Window
                        -> Dimension
                        -> Dimension
-                       -> DrawData dstyle
+                       -> DrawData engine
                        -> X ()
 defaultPaintDecoration deco win windowWidth windowHeight dd = do
     dpy <- asks display
@@ -334,21 +354,21 @@ defaultPaintDecoration deco win windowWidth windowHeight dd = do
       io $ setForeground dpy gc color
       io $ fillRectangle dpy pixmap gc x y w h
 
-defaultPlaceWidgets :: (Shrinker shrinker, DecorationStyleEx dstyle a, ThemeAttributes (ThemeW dstyle))
-                    => dstyle a -> ThemeW dstyle -> shrinker -> DecorationStyleState dstyle -> Rectangle -> Window -> WidgetLayout (Widget dstyle) -> X [WidgetPlace]
-defaultPlaceWidgets dstyle theme shrinker decoStyle decoRect window wlayout = do
+defaultPlaceWidgets :: (Shrinker shrinker, DecorationEngine engine a, ThemeAttributes (ThemeW engine))
+                    => engine a -> ThemeW engine -> shrinker -> DecorationStyleState engine -> Rectangle -> Window -> WidgetLayout (Widget engine) -> X [WidgetPlace]
+defaultPlaceWidgets engine theme shrinker decoStyle decoRect window wlayout = do
     let leftWidgets = wlLeft wlayout
         rightWidgets = wlRight wlayout
         centerWidgets = wlCenter wlayout
 
-    dd <- mkDrawData dstyle shrinker theme decoStyle window decoRect
+    dd <- mkDrawData engine shrinker theme decoStyle window decoRect
     let dd' = dd {ddDecoRect = pad (widgetsPadding theme) (ddDecoRect dd)}
-    rightRects <- alignRight dstyle dd' rightWidgets
-    leftRects <- alignLeft dstyle dd' leftWidgets
+    rightRects <- alignRight engine dd' rightWidgets
+    leftRects <- alignLeft engine dd' leftWidgets
     let leftWidgetsWidth = sum $ map (rect_width . wpRectangle) leftRects
         rightWidgetsWidth = sum $ map (rect_width . wpRectangle) rightRects
         dd'' = dd' {ddDecoRect = padCenter leftWidgetsWidth rightWidgetsWidth (ddDecoRect dd)}
-    centerRects <- alignCenter dstyle dd'' centerWidgets
+    centerRects <- alignCenter engine dd'' centerWidgets
     return $ leftRects ++ centerRects ++ rightRects
   where
     pad p (Rectangle x y w h) =

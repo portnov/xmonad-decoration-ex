@@ -14,9 +14,11 @@ module XMonad.Layout.DecorationEx.Types (
   , WidgetLayout (..)
   , HasWidgets (..)
   , ClickHandler (..)
+  , HasDecorationSize (..), DecorationSize
   , ThemeAttributes (..)
   , XPaintingContext
   , BoxBorders (..), BorderColors, borderColor, shadowBorder
+  , ThemeStyleType (..)
   , SimpleStyle (..), GenericTheme (..), ThemeEx, themeEx
   , widgetLayout
   ) where
@@ -26,7 +28,6 @@ import qualified Data.Map as M
 
 import XMonad
 import qualified XMonad.Layout.Decoration as D
-import XMonad.Util.Font
 
 data WindowDecoration = WindowDecoration {
     wdOrigWindow :: Window
@@ -89,12 +90,16 @@ class ClickHandler theme widget where
   onDecorationClick :: theme widget -> Int -> Maybe (WidgetCommand widget)
   isDraggingEnabled :: theme widget -> Int -> Bool
 
-class (Read theme, Show theme) => ThemeAttributes theme where
+type DecorationSize = (Dimension, Dimension)
+
+class HasDecorationSize theme where
+  decorationSize :: theme -> DecorationSize
+
+class (Read theme, Show theme, HasDecorationSize theme) => ThemeAttributes theme where
   type Style theme
   selectWindowStyle :: theme -> Window -> X (Style theme)
   widgetsPadding :: theme -> BoxBorders Dimension
   defaultBgColor :: theme -> String
-  decorationSize :: theme -> (Dimension, Dimension)
   themeFontName :: theme -> String
 
 data GenericTheme style widget = GenericTheme {
@@ -119,6 +124,9 @@ type ThemeEx widget = GenericTheme SimpleStyle widget
 
 instance HasWidgets (GenericTheme style) widget where
   themeWidgets theme = WidgetLayout (exWidgetsLeft theme) (exWidgetsCenter theme) (exWidgetsRight theme)
+
+data ThemeStyleType = ActiveWindow | UrgentWindow | InactiveWindow
+  deriving (Eq, Show, Read)
 
 themeEx :: D.Theme -> ThemeEx widget
 themeEx t =

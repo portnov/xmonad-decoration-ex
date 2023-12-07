@@ -25,11 +25,11 @@ import XMonad.Layout.DecorationEx.DecorationStyleEx
 -- together with a layout, to the 'ModifiedLayout' type constructor
 -- to modify the layout by adding decorations according to a
 -- 'DecorationStyle'.
-data DecorationEx dstyle shrinker a =
-    DecorationEx (Invisible Maybe (DecorationLayoutState dstyle)) shrinker (ThemeW dstyle) (dstyle a)
+data DecorationEx engine geom shrinker a =
+    DecorationEx (Invisible Maybe (DecorationLayoutState engine)) shrinker (ThemeW engine) (engine a) (geom a)
 
-deriving instance (Show (ThemeW dstyle), Show shrinker, Show (dstyle a)) => Show (DecorationEx dstyle shrinker a)
-deriving instance (Read (ThemeW dstyle), Read shrinker, Read (dstyle a)) => Read (DecorationEx dstyle shrinker a)
+deriving instance (Show (ThemeW engine), Show shrinker, Show (engine a), Show (geom a)) => Show (DecorationEx engine geom shrinker a)
+deriving instance (Read (ThemeW engine), Read shrinker, Read (engine a), Read (geom a)) => Read (DecorationEx engine geom shrinker a)
 
 -- | The long 'LayoutModifier' instance for the 'Decoration' type.
 --
@@ -56,14 +56,14 @@ deriving instance (Read (ThemeW dstyle), Read shrinker, Read (dstyle a)) => Read
 -- component of the 'Decoration' 'LayoutModifier'. Otherwise we call
 -- 'handleEvent', which will call the appropriate 'DecorationStyle'
 -- methods to perform its tasks.
-instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier (DecorationEx dstyle shrinker) Window where
-    redoLayout (DecorationEx (I (Just state)) shrinker theme dstyle) _ Nothing _ = do
-        releaseResources dstyle state
-        return ([], Just $ DecorationEx (I Nothing) shrinker theme dstyle)
+instance (DecorationEngine engine Window, DecorationGeometry geom Window, Shrinker shrinker) => LayoutModifier (DecorationEx engine geom shrinker) Window where
+    redoLayout (DecorationEx (I (Just state)) shrinker theme engine geom) _ Nothing _ = do
+        releaseResources engine state
+        return ([], Just $ DecorationEx (I Nothing) shrinker theme engine geom)
     redoLayout _ _ Nothing _  = return ([], Nothing)
 
-    redoLayout (DecorationEx st shrinker theme dstyle) screenRect (Just stack) srcPairs
-        | I Nothing  <- st = initState theme dstyle shrinker screenRect stack srcPairs >>= processState
+    redoLayout (DecorationEx st shrinker theme engine geom) screenRect (Just stack) srcPairs
+        | I Nothing  <- st = initState theme engine geom shrinker screenRect stack srcPairs >>= processState
         | I (Just s) <- st = do
             let decorations  = dsDecorations s
                 (d,a) = curry diff (getOrigWindows decorations) srcWindows
@@ -96,19 +96,19 @@ instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier 
           createDecoWindowIfNeeded mbDecoWindow mbDecoRect =
             case (mbDecoWindow, mbDecoRect) of
               (Nothing, Just decoRect) -> do
-                decoWindow <- createDecoWindow dstyle theme decoRect
+                decoWindow <- createDecoWindow engine theme decoRect
                 return $ Just decoWindow
               _ -> return mbDecoWindow
 
-          resync :: DecorationStyleState dstyle -> [WindowDecoration] -> [(Window,Rectangle)] -> X [WindowDecoration]
+          resync :: DecorationStyleState engine -> [WindowDecoration] -> [(Window,Rectangle)] -> X [WindowDecoration]
           resync _ _ [] = return []
           resync decoState dd ((window,rect):xs) =
             case  window `elemIndex` getOrigWindows dd of
               Just i  -> do
-                mbDecoRect <- decorateWindow dstyle theme screenRect stack srcPairs (window,rect)
+                mbDecoRect <- decorateWindow geom (decorationSize theme) screenRect stack srcPairs (window,rect)
                 widgetPlaces <- case mbDecoRect of
                                   Nothing -> return []
-                                  Just decoRect -> placeWidgets dstyle theme shrinker decoState decoRect window (themeWidgets theme)
+                                  Just decoRect -> placeWidgets engine theme shrinker decoState decoRect window (themeWidgets theme)
                 mbDecoWindow  <- createDecoWindowIfNeeded (findDecoWindow i dd) mbDecoRect
                 let newDd = WindowDecoration window rect mbDecoWindow mbDecoRect widgetPlaces
                 restDd <- resync decoState dd xs
@@ -126,97 +126,99 @@ instance (DecorationStyleEx dstyle Window, Shrinker shrinker) => LayoutModifier 
           insertDwr :: WindowDecoration -> [(Window, Rectangle)] -> [(Window, Rectangle)]
           insertDwr dd wrs =
             case (wdDecoWindow dd, wdDecoRect dd) of
-              (Just decoWindow, Just decoRect) -> (decoWindow, decoRect) : (wdOrigWindow dd, shrinkWindow dstyle decoRect (wdOrigWinRect dd)) : wrs
+              (Just decoWindow, Just decoRect) -> (decoWindow, decoRect) : (wdOrigWindow dd, shrinkWindow geom decoRect (wdOrigWinRect dd)) : wrs
               _ -> (wdOrigWindow dd, wdOrigWinRect dd) : wrs
 
           dwrs_to_wrs :: [WindowDecoration] -> [(Window, Rectangle)]
           dwrs_to_wrs = removeTabbed [] . foldr insertDwr []
 
-          processState :: DecorationLayoutState dstyle -> X ([(Window, Rectangle)], Maybe (DecorationEx dstyle shrinker Window))
+          processState :: DecorationLayoutState engine -> X ([(Window, Rectangle)], Maybe (DecorationEx engine geom shrinker Window))
           processState st = do
             let decorations = dsDecorations st
             showDecos decorations
-            updateDecos dstyle shrinker theme (dsStyleState st) decorations
-            return (dwrs_to_wrs decorations, Just (DecorationEx (I (Just (st {dsDecorations = decorations}))) shrinker theme dstyle))
+            updateDecos engine shrinker theme (dsStyleState st) decorations
+            return (dwrs_to_wrs decorations, Just (DecorationEx (I (Just (st {dsDecorations = decorations}))) shrinker theme engine geom))
 
-    handleMess (DecorationEx (I (Just st)) shrinker theme dstyle) m
+    handleMess (DecorationEx (I (Just st)) shrinker theme engine geom) m
         | Just e <- fromMessage m = do
-            decorationEventHookEx dstyle theme st shrinker e
-            handleEvent dstyle shrinker theme st e
+            decorationEventHookEx engine theme st shrinker e
+            handleEvent engine shrinker theme st e
             return Nothing
         | Just Hide <- fromMessage m = do
             hideDecos $ dsDecorations st
             return Nothing
 --         | Just (SetTheme nt) <- fromMessage m = do
---             releaseResources dstyle st
+--             releaseResources engine st
 --             let t' = themeEx nt
---             return $ Just $ DecorationEx (I Nothing) shrinker t' dstyle
+--             return $ Just $ DecorationEx (I Nothing) shrinker t' engine
         | Just ReleaseResources <- fromMessage m = do
-            releaseResources dstyle st
-            return $ Just $ DecorationEx (I Nothing) shrinker theme  dstyle
+            releaseResources engine st
+            return $ Just $ DecorationEx (I Nothing) shrinker theme  engine geom
     handleMess _ _ = return Nothing
 
-    modifierDescription (DecorationEx _ _ _ dstyle) = describeDecoration dstyle
+    modifierDescription (DecorationEx _ _ _ engine geom) = describeEngine engine ++ describeGeometry geom
 
 -- | By default 'Decoration' handles 'PropertyEvent' and 'ExposeEvent'
 -- only.
-handleEvent :: (Shrinker shrinker, DecorationStyleEx dstyle Window) => dstyle Window -> shrinker -> ThemeW dstyle -> DecorationLayoutState dstyle -> Event -> X ()
-handleEvent dstyle shrinker theme (DecorationLayoutState {..}) e
+handleEvent :: (Shrinker shrinker, DecorationEngine engine Window) => engine Window -> shrinker -> ThemeW engine -> DecorationLayoutState engine -> Event -> X ()
+handleEvent engine shrinker theme (DecorationLayoutState {..}) e
     | PropertyEvent {ev_window = w} <- e
-    , Just i <- w `elemIndex` map wdOrigWindow dsDecorations = updateDeco dstyle shrinker theme dsStyleState (dsDecorations !! i)
+    , Just i <- w `elemIndex` map wdOrigWindow dsDecorations = updateDeco engine shrinker theme dsStyleState (dsDecorations !! i)
     | ExposeEvent   {ev_window = w} <- e
-    , Just i <- w `elemIndex` mapMaybe wdDecoWindow dsDecorations = updateDeco dstyle shrinker theme dsStyleState (dsDecorations !! i)
+    , Just i <- w `elemIndex` mapMaybe wdDecoWindow dsDecorations = updateDeco engine shrinker theme dsStyleState (dsDecorations !! i)
 handleEvent _ _ _ _ _ = return ()
 
 -- | Initialize the 'DecorationState' by initializing the font
 -- structure and by creating the needed decorations.
-initState :: (DecorationStyleEx dstyle Window, Shrinker shrinker)
-          => ThemeW dstyle
-          -> dstyle Window
+initState :: (DecorationEngine engine Window, DecorationGeometry geom Window, Shrinker shrinker)
+          => ThemeW engine
+          -> engine Window
+          -> geom Window
           -> shrinker
           -> Rectangle
           -> W.Stack Window
-          -> [(Window,Rectangle)] -> X (DecorationLayoutState dstyle)
-initState theme dstyle shrinker screenRect stack wrs = do
-  styleState <- initializeState dstyle theme
-  decorations <- createDecos theme dstyle shrinker styleState screenRect stack wrs wrs
+          -> [(Window,Rectangle)] -> X (DecorationLayoutState engine)
+initState theme engine geom shrinker screenRect stack wrs = do
+  styleState <- initializeState engine geom theme
+  decorations <- createDecos theme engine geom shrinker styleState screenRect stack wrs wrs
   return $ DecorationLayoutState styleState decorations
 
 -- | Delete windows stored in the state and release the font structure.
-releaseResources :: DecorationStyleEx dstyle Window => dstyle Window -> DecorationLayoutState dstyle -> X ()
-releaseResources dstyle st = do
+releaseResources :: DecorationEngine engine Window => engine Window -> DecorationLayoutState engine -> X ()
+releaseResources engine st = do
   deleteDecos (dsDecorations st)
-  releaseStateResources dstyle (dsStyleState st)
+  releaseStateResources engine (dsStyleState st)
 
 -- | Create the decoration windows of a list of windows and their
 -- rectangles, by calling the 'decorate' method of the
 -- 'DecorationStyle' received.
-createDecos :: (DecorationStyleEx dstyle Window, Shrinker shrinker)
-            => ThemeW dstyle
-            -> dstyle Window
+createDecos :: (DecorationEngine engine Window, DecorationGeometry geom Window, Shrinker shrinker)
+            => ThemeW engine
+            -> engine Window
+            -> geom Window
             -> shrinker
-            -> DecorationStyleState dstyle
+            -> DecorationStyleState engine
             -> Rectangle
             -> W.Stack Window
             -> [(Window,Rectangle)] -> [(Window,Rectangle)] -> X [WindowDecoration]
-createDecos theme dstyle shrinker decoState screenRect stack wrs ((w,r):xs) = do
-  mbDecoRect <- decorateWindow dstyle theme screenRect stack wrs (w,r)
+createDecos theme engine geom shrinker decoState screenRect stack wrs ((w,r):xs) = do
+  mbDecoRect <- decorateWindow geom (decorationSize theme) screenRect stack wrs (w,r)
   case mbDecoRect of
     Just decoRect -> do
-      decoWindow <- createDecoWindow dstyle theme decoRect
-      widgetPlaces <- placeWidgets dstyle theme shrinker decoState decoRect w (themeWidgets theme)
-      restDd <- createDecos theme dstyle shrinker decoState screenRect stack wrs xs
+      decoWindow <- createDecoWindow engine theme decoRect
+      widgetPlaces <- placeWidgets engine theme shrinker decoState decoRect w (themeWidgets theme)
+      restDd <- createDecos theme engine geom shrinker decoState screenRect stack wrs xs
       let newDd = WindowDecoration w r (Just decoWindow) (Just decoRect) widgetPlaces
       return $ newDd : restDd
     Nothing -> do
-      restDd <- createDecos theme dstyle shrinker decoState screenRect stack wrs xs
+      restDd <- createDecos theme engine geom shrinker decoState screenRect stack wrs xs
       let newDd = WindowDecoration w r Nothing Nothing []
       return $ newDd : restDd
-createDecos _ _ _ _ _ _ _ [] = return []
+createDecos _ _ _ _ _ _ _ _ [] = return []
 
-createDecoWindow :: (DecorationStyleEx dstyle Window) => dstyle Window -> ThemeW dstyle -> Rectangle -> X Window
-createDecoWindow dstyle theme rect = do
-  let mask = Just $ decorationXEventMask dstyle
+createDecoWindow :: (DecorationEngine engine Window) => engine Window -> ThemeW engine -> Rectangle -> X Window
+createDecoWindow engine theme rect = do
+  let mask = Just $ decorationXEventMask engine
   w <- createNewWindow rect mask (defaultBgColor theme) True
   d <- asks display
   io $ setClassHint d w (ClassHint "xmonad-decoration" "xmonad")
@@ -232,25 +234,26 @@ hideDecos = hideWindows . mapMaybe wdDecoWindow
 deleteDecos :: [WindowDecoration] -> X ()
 deleteDecos = deleteWindows . mapMaybe wdDecoWindow
 
-updateDecos :: (Shrinker shrinker, DecorationStyleEx dstyle Window)
-            => dstyle Window -> shrinker -> ThemeW dstyle -> DecorationStyleState dstyle -> [WindowDecoration] -> X ()
-updateDecos dstyle shrinker theme decoState = mapM_ $ updateDeco dstyle shrinker theme decoState
+updateDecos :: (Shrinker shrinker, DecorationEngine engine Window)
+            => engine Window -> shrinker -> ThemeW engine -> DecorationStyleState engine -> [WindowDecoration] -> X ()
+updateDecos engine shrinker theme decoState = mapM_ $ updateDeco engine shrinker theme decoState
 
 -- | Update a decoration window given a shrinker, a theme, the font
 -- structure and the needed 'Rectangle's
-updateDeco :: (Shrinker shrinker, DecorationStyleEx dstyle Window) => dstyle Window -> shrinker -> ThemeW dstyle -> DecorationStyleState dstyle -> WindowDecoration -> X ()
-updateDeco dstyle shrinker theme decoState wd =
+updateDeco :: (Shrinker shrinker, DecorationEngine engine Window) => engine Window -> shrinker -> ThemeW engine -> DecorationStyleState engine -> WindowDecoration -> X ()
+updateDeco engine shrinker theme decoState wd =
   case (wdDecoWindow wd, wdDecoRect wd) of
     (Just decoWindow, Just decoRect@(Rectangle _ _ wh ht)) -> do
       let origWin = wdOrigWindow wd
-      drawData <- mkDrawData dstyle shrinker theme decoState origWin decoRect
-      widgetPlaces <- placeWidgets dstyle theme shrinker decoState decoRect (wdOrigWindow wd) (themeWidgets theme)
+      drawData <- mkDrawData engine shrinker theme decoState origWin decoRect
+      widgetPlaces <- placeWidgets engine theme shrinker decoState decoRect (wdOrigWindow wd) (themeWidgets theme)
       -- io $ print widgetPlaces
-      paintDecoration dstyle decoWindow wh ht $ drawData {ddWidgetPlaces = widgetPlaces}
+      paintDecoration engine decoWindow wh ht $ drawData {ddWidgetPlaces = widgetPlaces}
     (Just decoWindow, Nothing) -> hideWindow decoWindow
     _ -> return ()
 
-decorationEx :: (DecorationStyleEx dstyle a, Shrinker shrinker) => shrinker -> ThemeW dstyle -> dstyle a
-           -> l a -> ModifiedLayout (DecorationEx dstyle shrinker) l a
-decorationEx shrinker theme dstyle = ModifiedLayout (DecorationEx (I Nothing) shrinker theme dstyle)
+decorationEx :: (DecorationEngine engine a, DecorationGeometry geom a, Shrinker shrinker)
+             => shrinker -> ThemeW engine -> engine a -> geom a
+             -> l a -> ModifiedLayout (DecorationEx engine geom shrinker) l a
+decorationEx shrinker theme engine geom = ModifiedLayout (DecorationEx (I Nothing) shrinker theme engine geom)
 

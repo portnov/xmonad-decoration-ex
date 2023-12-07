@@ -27,13 +27,13 @@ instance ClickHandler (GenericTheme SimpleStyle) StandardWidget where
   onDecorationClick theme button = M.lookup button (exOnDecoClick theme)
   isDraggingEnabled theme button = button `elem` exDragWindowButtons theme
 
-instance DecorationStyleEx TextDecoration Window where
+instance DecorationEngine TextDecoration Window where
   type Theme TextDecoration = GenericTheme SimpleStyle
   type Widget TextDecoration = StandardWidget
   type DecorationPaintingContext TextDecoration = XPaintingContext
   type DecorationStyleState TextDecoration = XMonadFont
 
-  describeDecoration _ = "TextDecoration"
+  describeEngine _ = "TextDecoration"
 
   calcWidgetPlace = calcTextWidgetPlace
 
@@ -41,21 +41,21 @@ instance DecorationStyleEx TextDecoration Window where
 
   paintDecoration = defaultPaintDecoration
 
-  initializeState dstyle theme = initXMF (themeFontName theme)
-  releaseStateResources dstyle = releaseXMF
+  initializeState engine geom theme = initXMF (themeFontName theme)
+  releaseStateResources engine = releaseXMF
 
   placeWidgets = defaultPlaceWidgets
 
-paintTextWidget :: (Widget dstyle ~ StandardWidget,
-                    Style (ThemeW dstyle) ~ SimpleStyle,
-                    DecorationPaintingContext dstyle ~ XPaintingContext,
-                    DecorationStyleState dstyle ~ XMonadFont,
-                    DecorationStyleEx dstyle Window)
-                => dstyle Window
-                -> DecorationPaintingContext dstyle
+paintTextWidget :: (Widget engine ~ StandardWidget,
+                    Style (ThemeW engine) ~ SimpleStyle,
+                    DecorationPaintingContext engine ~ XPaintingContext,
+                    DecorationStyleState engine ~ XMonadFont,
+                    DecorationEngine engine Window)
+                => engine Window
+                -> DecorationPaintingContext engine
                 -> WidgetPlace
-                -> DrawData dstyle
-                -> Widget dstyle
+                -> DrawData engine
+                -> Widget engine
                 -> X ()
 paintTextWidget deco (dpy, pixmap, gc) place dd widget = do
     let style = ddStyle dd
@@ -64,12 +64,12 @@ paintTextWidget deco (dpy, pixmap, gc) place dd widget = do
     str <- widgetString dd widget
     printStringXMF dpy pixmap (ddStyleState dd) gc (sTextColor style) (sTextBgColor style) x y str
 
-calcTextWidgetPlace :: (Widget dstyle ~ StandardWidget,
-                        DecorationStyleState dstyle ~ XMonadFont,
-                        DecorationStyleEx dstyle Window)
-                    => dstyle Window
-                    -> DrawData dstyle
-                    -> Widget dstyle
+calcTextWidgetPlace :: (Widget engine ~ StandardWidget,
+                        DecorationStyleState engine ~ XMonadFont,
+                        DecorationEngine engine Window)
+                    => engine Window
+                    -> DrawData engine
+                    -> Widget engine
                     -> X WidgetPlace
 calcTextWidgetPlace deco dd widget = do
     str <- widgetString dd widget
@@ -86,6 +86,6 @@ calcTextWidgetPlace deco dd widget = do
       return $ WidgetPlace y0 rect
 
 textDecoration :: (Shrinker shrinker) => shrinker -> ThemeEx StandardWidget -> l Window
-             -> ModifiedLayout (DecorationEx TextDecoration shrinker) l Window
-textDecoration s theme = decorationEx s theme TextDecoration
+             -> ModifiedLayout (DecorationEx TextDecoration DefaultGeometry shrinker) l Window
+textDecoration shrinker theme = decorationEx shrinker theme TextDecoration DefaultGeometry
 

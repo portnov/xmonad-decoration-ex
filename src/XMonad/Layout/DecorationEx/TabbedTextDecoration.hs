@@ -10,7 +10,6 @@ import qualified XMonad.StackSet as W
 import XMonad.Prelude
 import XMonad.Layout.Decoration (ModifiedLayout, Shrinker (..))
 import XMonad.Util.Types
-import XMonad.Util.Font
 
 import XMonad.Layout.DecorationEx.LayoutModifier
 import XMonad.Layout.DecorationEx.Types
@@ -18,36 +17,20 @@ import XMonad.Layout.DecorationEx.DecorationStyleEx
 import XMonad.Layout.DecorationEx.Widgets
 import XMonad.Layout.DecorationEx.TextDecoration
 
-newtype TabbedTextDecoration a = TabbedTextDecoration Direction2D
+newtype TabbedGeometry a = TabbedGeometry Direction2D
   deriving (Show, Read)
 
-instance DecorationStyleEx TabbedTextDecoration Window where
-  type Theme TabbedTextDecoration = GenericTheme SimpleStyle
-  type Widget TabbedTextDecoration = StandardWidget
-  type DecorationPaintingContext TabbedTextDecoration = XPaintingContext
-  type DecorationStyleState TabbedTextDecoration = XMonadFont
+instance DecorationGeometry TabbedGeometry Window where
 
-  describeDecoration (TabbedTextDecoration _) = "TabbedText"
+  describeGeometry (TabbedGeometry _) = "Tabbed"
 
-  initializeState dstyle theme = initXMF (themeFontName theme)
-  releaseStateResources dstyle = releaseXMF
-
-  calcWidgetPlace = calcTextWidgetPlace
-
-  paintWidget = paintTextWidget
-
-  placeWidgets = defaultPlaceWidgets
-
-  paintDecoration = defaultPaintDecoration
-
-  pureDecoration (TabbedTextDecoration lc) theme screenRect stack wrs (w, r) =
+  pureDecoration (TabbedGeometry lc) (wt,ht) screenRect stack wrs (w, r) =
           Just $ case lc of
                       U -> upperTab
                       D -> lowerTab
                       L -> leftTab
                       R -> rightTab
         where
-          (wt, ht) = decorationSize theme
           Rectangle x y wh hh = r
           ws = filter (`elem` map fst (filter ((==r) . snd) wrs)) (W.integrate stack)
           loc k h i = k + fi ((h * fi i) `div` max 1 (fi $ length ws))
@@ -65,14 +48,14 @@ instance DecorationStyleEx TabbedTextDecoration Window where
           leftTab = fixHeightTab x
           numWindows = length ws
 
-  shrinkWindow (TabbedTextDecoration loc) (Rectangle _ _ dw dh) (Rectangle x y w h)
+  shrinkWindow (TabbedGeometry loc) (Rectangle _ _ dw dh) (Rectangle x y w h)
         = case loc of
             U -> Rectangle x (y + fi dh) w (h - dh)
             D -> Rectangle x y w (h - dh)
             L -> Rectangle (x + fi dw) y (w - dw) h
             R -> Rectangle x y (w - dw) h
 
-textTabbed :: (Shrinker s) => s -> ThemeEx StandardWidget -> l Window
-             -> ModifiedLayout (DecorationEx TabbedTextDecoration s) l Window
-textTabbed s theme = decorationEx s theme $ TabbedTextDecoration U
+textTabbed :: (Shrinker shrinker) => shrinker -> ThemeEx StandardWidget -> l Window
+             -> ModifiedLayout (DecorationEx TextDecoration TabbedGeometry shrinker) l Window
+textTabbed shrinker theme = decorationEx shrinker theme TextDecoration (TabbedGeometry U)
 
