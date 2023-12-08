@@ -45,6 +45,7 @@ class (WindowCommand (WidgetCommand widget), Read widget, Show widget)
   => DecorationWidget widget where
   type WidgetCommand widget
   widgetCommand :: widget -> Int -> WidgetCommand widget
+  isShrinkable :: widget -> Bool
 
 data WidgetLayout a = WidgetLayout {
     wlLeft :: [a]

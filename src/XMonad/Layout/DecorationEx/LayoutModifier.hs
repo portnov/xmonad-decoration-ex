@@ -18,7 +18,7 @@ import XMonad.Util.Invisible
 import XMonad.Util.XUtils hiding (paintTextAndIcons)
 
 import XMonad.Layout.DecorationEx.Types
-import XMonad.Layout.DecorationEx.DecorationStyleEx
+import XMonad.Layout.DecorationEx.Engines
 
 -- | The 'Decoration' 'LayoutModifier'. This data type is an instance
 -- of the 'LayoutModifier' class. This data type will be passed,
@@ -100,7 +100,7 @@ instance (DecorationEngine engine Window, DecorationGeometry geom Window, Shrink
                 return $ Just decoWindow
               _ -> return mbDecoWindow
 
-          resync :: DecorationStyleState engine -> [WindowDecoration] -> [(Window,Rectangle)] -> X [WindowDecoration]
+          resync :: DecorationEngineState engine -> [WindowDecoration] -> [(Window,Rectangle)] -> X [WindowDecoration]
           resync _ _ [] = return []
           resync decoState dd ((window,rect):xs) =
             case  window `elemIndex` getOrigWindows dd of
@@ -197,7 +197,7 @@ createDecos :: (DecorationEngine engine Window, DecorationGeometry geom Window, 
             -> engine Window
             -> geom Window
             -> shrinker
-            -> DecorationStyleState engine
+            -> DecorationEngineState engine
             -> Rectangle
             -> W.Stack Window
             -> [(Window,Rectangle)] -> [(Window,Rectangle)] -> X [WindowDecoration]
@@ -235,12 +235,12 @@ deleteDecos :: [WindowDecoration] -> X ()
 deleteDecos = deleteWindows . mapMaybe wdDecoWindow
 
 updateDecos :: (Shrinker shrinker, DecorationEngine engine Window)
-            => engine Window -> shrinker -> ThemeW engine -> DecorationStyleState engine -> [WindowDecoration] -> X ()
+            => engine Window -> shrinker -> ThemeW engine -> DecorationEngineState engine -> [WindowDecoration] -> X ()
 updateDecos engine shrinker theme decoState = mapM_ $ updateDeco engine shrinker theme decoState
 
 -- | Update a decoration window given a shrinker, a theme, the font
 -- structure and the needed 'Rectangle's
-updateDeco :: (Shrinker shrinker, DecorationEngine engine Window) => engine Window -> shrinker -> ThemeW engine -> DecorationStyleState engine -> WindowDecoration -> X ()
+updateDeco :: (Shrinker shrinker, DecorationEngine engine Window) => engine Window -> shrinker -> ThemeW engine -> DecorationEngineState engine -> WindowDecoration -> X ()
 updateDeco engine shrinker theme decoState wd =
   case (wdDecoWindow wd, wdDecoRect wd) of
     (Just decoWindow, Just decoRect@(Rectangle _ _ wh ht)) -> do
@@ -248,7 +248,7 @@ updateDeco engine shrinker theme decoState wd =
       drawData <- mkDrawData engine shrinker theme decoState origWin decoRect
       widgetPlaces <- placeWidgets engine theme shrinker decoState decoRect (wdOrigWindow wd) (themeWidgets theme)
       -- io $ print widgetPlaces
-      paintDecoration engine decoWindow wh ht $ drawData {ddWidgetPlaces = widgetPlaces}
+      paintDecoration engine decoWindow wh ht shrinker $ drawData {ddWidgetPlaces = widgetPlaces}
     (Just decoWindow, Nothing) -> hideWindow decoWindow
     _ -> return ()
 

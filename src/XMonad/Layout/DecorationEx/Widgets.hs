@@ -14,7 +14,7 @@ import XMonad.Layout.Maximize
 import XMonad.Actions.Minimize
 
 import XMonad.Layout.DecorationEx.Types
-import XMonad.Layout.DecorationEx.DecorationStyleEx
+import XMonad.Layout.DecorationEx.Engines
 
 data StandardCommand =
       Noop
@@ -89,6 +89,9 @@ instance DecorationWidget StandardWidget where
   widgetCommand TitleWidget _ = Noop
   widgetCommand w 1 = swCommand w
   widgetCommand _ _ = Noop
+
+  isShrinkable TitleWidget = True
+  isShrinkable _ = False
 
 isWidgetChecked :: DecorationWidget widget => widget -> Window -> X Bool
 isWidgetChecked wdt = isCommandChecked (widgetCommand wdt 1)
