@@ -61,7 +61,7 @@ data DrawData engine = DrawData {
   , ddOrigWindow :: !Window                             -- ^ Original window to be decorated
   , ddWindowTitle :: !String                            -- ^ Original window title (not shrinked yet)
   , ddDecoRect :: !Rectangle                            -- ^ Decoration rectangle
-  , ddLabels :: !(WidgetLayout (Widget engine))         -- ^ Widgets to be placed on decoration
+  , ddWidgets :: !(WidgetLayout (Widget engine))         -- ^ Widgets to be placed on decoration
   , ddWidgetPlaces :: !(WidgetLayout WidgetPlace)       -- ^ Places where widgets must be shown
   }
 
@@ -333,7 +333,7 @@ mkDrawData engine shrinker theme decoState origWindow decoRect@(Rectangle _ _ wh
                    ddOrigWindow = origWindow,
                    ddWindowTitle = name,
                    ddDecoRect = decoRect,
-                   ddLabels = themeWidgets theme,
+                   ddWidgets = themeWidgets theme,
                    ddWidgetPlaces = WidgetLayout [] [] []
                   }
 
@@ -428,7 +428,7 @@ defaultPaintDecoration :: forall engine shrinker.
                        -> X ()
 defaultPaintDecoration deco win windowWidth windowHeight shrinker dd isExpose = do
     dpy <- asks display
-    let widgets = widgetLayout $ ddLabels dd
+    let widgets = widgetLayout $ ddWidgets dd
         style = ddStyle dd
     pixmap  <- io $ createPixmap dpy win windowWidth windowHeight (defaultDepthOfScreen $ defaultScreenOfDisplay dpy)
     gc <- io $ createGC dpy pixmap
