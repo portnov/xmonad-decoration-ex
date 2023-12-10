@@ -84,8 +84,9 @@ paintTextWidget :: (Widget engine ~ StandardWidget,
                 -> shrinker
                 -> DrawData engine
                 -> Widget engine
+                -> Bool
                 -> X ()
-paintTextWidget engine (dpy, pixmap, gc) place shrinker dd widget = do
+paintTextWidget engine (dpy, pixmap, gc) place shrinker dd widget isExpose = do
     let style = ddStyle dd
         rect = wpRectangle place
         x = rect_x rect

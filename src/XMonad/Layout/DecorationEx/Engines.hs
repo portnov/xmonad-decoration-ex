@@ -196,6 +196,10 @@ class (Read (engine a), Show (engine a),
     decorationXEventMask :: engine a -> EventMask
     decorationXEventMask _ = exposureMask .|. buttonPressMask
 
+    propsToRepaintDecoration :: engine a -> X [Atom]
+    propsToRepaintDecoration _ =
+      mapM getAtom ["WM_NAME", "_NET_WM_NAME", "WM_STATE", "WM_HINTS"]
+
     decorationEventHookEx :: Shrinker shrinker => engine a -> ThemeW engine -> DecorationLayoutState engine -> shrinker -> Event -> X ()
     decorationEventHookEx = handleMouseFocusDrag
 
@@ -214,10 +218,27 @@ class (Read (engine a), Show (engine a),
         sendMessage DraggingStopped
         performWindowSwitching w
 
-    paintDecoration :: Shrinker shrinker => engine a -> a -> Dimension -> Dimension -> shrinker -> DrawData engine -> X()
+    paintDecoration :: Shrinker shrinker
+                    => engine a
+                    -> a
+                    -> Dimension
+                    -> Dimension
+                    -> shrinker
+                    -> DrawData engine
+                    -> Bool
+                    -> X()
+
     -- FIXME: Передавать не DrawData (со списком остальных виджетов зачем-то),
     -- а более скромную структуру
-    paintWidget :: Shrinker shrinker => engine a -> DecorationPaintingContext engine -> WidgetPlace -> shrinker -> DrawData engine -> Widget engine -> X ()
+    paintWidget :: Shrinker shrinker
+                => engine a
+                -> DecorationPaintingContext engine
+                -> WidgetPlace
+                -> shrinker
+                -> DrawData engine
+                -> Widget engine
+                -> Bool
+                -> X ()
 
 handleDraggingInProgress :: CInt -> CInt -> (Window, Rectangle) -> Position -> Position -> X ()
 handleDraggingInProgress ex ey (mainw, r) x y = do
@@ -403,8 +424,9 @@ defaultPaintDecoration :: forall engine shrinker.
                        -> Dimension
                        -> shrinker
                        -> DrawData engine
+                       -> Bool
                        -> X ()
-defaultPaintDecoration deco win windowWidth windowHeight shrinker dd = do
+defaultPaintDecoration deco win windowWidth windowHeight shrinker dd isExpose = do
     dpy <- asks display
     let widgets = widgetLayout $ ddLabels dd
         style = ddStyle dd
@@ -416,10 +438,11 @@ defaultPaintDecoration deco win windowWidth windowHeight shrinker dd = do
     -- we start with the border
     let borderWidth = sDecoBorderWidth style
         borderColors = sDecorationBorders style
-    drawLineWith dpy pixmap gc 0 0 windowWidth borderWidth (bxTop borderColors)
-    drawLineWith dpy pixmap gc 0 0 borderWidth windowHeight (bxLeft borderColors)
-    drawLineWith dpy pixmap gc 0 (fi (windowHeight - borderWidth)) windowWidth borderWidth (bxBottom borderColors)
-    drawLineWith dpy pixmap gc (fi (windowWidth - borderWidth)) 0 borderWidth windowHeight (bxRight borderColors)
+    when (borderWidth > 0) $ do
+      drawLineWith dpy pixmap gc 0 0 windowWidth borderWidth (bxTop borderColors)
+      drawLineWith dpy pixmap gc 0 0 borderWidth windowHeight (bxLeft borderColors)
+      drawLineWith dpy pixmap gc 0 (fi (windowHeight - borderWidth)) windowWidth borderWidth (bxBottom borderColors)
+      drawLineWith dpy pixmap gc (fi (windowWidth - borderWidth)) 0 borderWidth windowHeight (bxRight borderColors)
 
     -- and now again
     io $ setForeground dpy gc bgColor
@@ -427,7 +450,7 @@ defaultPaintDecoration deco win windowWidth windowHeight shrinker dd = do
 
     -- paint strings
     forM_ (zip widgets $ widgetLayout $ ddWidgetPlaces dd) $ \(widget, place) ->
-        paintWidget deco (dpy, pixmap, gc) place shrinker dd widget
+        paintWidget deco (dpy, pixmap, gc) place shrinker dd widget isExpose
 
     -- debug
     -- black <- stringToPixel dpy "black"

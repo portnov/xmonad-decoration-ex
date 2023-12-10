@@ -162,10 +162,16 @@ instance (DecorationEngine engine Window, DecorationGeometry geom Window, Shrink
 -- only.
 handleEvent :: (Shrinker shrinker, DecorationEngine engine Window) => engine Window -> shrinker -> ThemeW engine -> DecorationLayoutState engine -> Event -> X ()
 handleEvent engine shrinker theme (DecorationLayoutState {..}) e
-    | PropertyEvent {ev_window = w} <- e
-    , Just i <- w `elemIndex` map wdOrigWindow dsDecorations = updateDeco engine shrinker theme dsStyleState (dsDecorations !! i)
+    | PropertyEvent {ev_window = w, ev_atom = atom} <- e
+    , Just i <- w `elemIndex` map wdOrigWindow dsDecorations = do
+        supportedAtoms <- propsToRepaintDecoration engine
+        when (atom `elem` supportedAtoms) $ do
+          -- io $ putStrLn $ "property event on " ++ show w -- ++ ": " ++ fromMaybe "<?>" atomName
+          updateDeco engine shrinker theme dsStyleState (dsDecorations !! i) False
     | ExposeEvent   {ev_window = w} <- e
-    , Just i <- w `elemIndex` mapMaybe wdDecoWindow dsDecorations = updateDeco engine shrinker theme dsStyleState (dsDecorations !! i)
+    , Just i <- w `elemIndex` mapMaybe wdDecoWindow dsDecorations = do
+        -- io $ putStrLn $ "expose event on " ++ show w
+        updateDeco engine shrinker theme dsStyleState (dsDecorations !! i) True
 handleEvent _ _ _ _ _ = return ()
 
 -- | Initialize the 'DecorationState' by initializing the font
@@ -236,19 +242,19 @@ deleteDecos = deleteWindows . mapMaybe wdDecoWindow
 
 updateDecos :: (Shrinker shrinker, DecorationEngine engine Window)
             => engine Window -> shrinker -> ThemeW engine -> DecorationEngineState engine -> [WindowDecoration] -> X ()
-updateDecos engine shrinker theme decoState = mapM_ $ updateDeco engine shrinker theme decoState
+updateDecos engine shrinker theme decoState = mapM_ (\wd -> updateDeco engine shrinker theme decoState wd False)
 
 -- | Update a decoration window given a shrinker, a theme, the font
 -- structure and the needed 'Rectangle's
-updateDeco :: (Shrinker shrinker, DecorationEngine engine Window) => engine Window -> shrinker -> ThemeW engine -> DecorationEngineState engine -> WindowDecoration -> X ()
-updateDeco engine shrinker theme decoState wd =
+updateDeco :: (Shrinker shrinker, DecorationEngine engine Window) => engine Window -> shrinker -> ThemeW engine -> DecorationEngineState engine -> WindowDecoration -> Bool -> X ()
+updateDeco engine shrinker theme decoState wd isExpose =
   case (wdDecoWindow wd, wdDecoRect wd) of
     (Just decoWindow, Just decoRect@(Rectangle _ _ wh ht)) -> do
       let origWin = wdOrigWindow wd
       drawData <- mkDrawData engine shrinker theme decoState origWin decoRect
       widgetPlaces <- placeWidgets engine theme shrinker decoState decoRect (wdOrigWindow wd) (themeWidgets theme)
       -- io $ print widgetPlaces
-      paintDecoration engine decoWindow wh ht shrinker $ drawData {ddWidgetPlaces = widgetPlaces}
+      paintDecoration engine decoWindow wh ht shrinker (drawData {ddWidgetPlaces = widgetPlaces}) isExpose
     (Just decoWindow, Nothing) -> hideWindow decoWindow
     _ -> return ()
 
