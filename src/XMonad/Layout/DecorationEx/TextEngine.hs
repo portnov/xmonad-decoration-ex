@@ -93,9 +93,9 @@ paintTextWidget engine (dpy, pixmap, gc) place shrinker dd widget isExpose = do
         y = wpTextYPosition place
     str <- widgetString dd widget
     str' <- if isShrinkable widget
-              then getShrinkedWindowName engine shrinker (ddStyleState dd) str (rect_width rect) (rect_height rect)
+              then getShrinkedWindowName engine shrinker (ddEngineState dd) str (rect_width rect) (rect_height rect)
               else return str
-    printStringXMF dpy pixmap (ddStyleState dd) gc (sTextColor style) (sTextBgColor style) x y str'
+    printStringXMF dpy pixmap (ddEngineState dd) gc (sTextColor style) (sTextBgColor style) x y str'
 
 -- | Implementation of @calcWidgetPlace@ for decoration engines based on @TextDecoration@.
 calcTextWidgetPlace :: (Widget engine ~ StandardWidget,
@@ -109,9 +109,9 @@ calcTextWidgetPlace deco dd widget = do
     str <- widgetString dd widget
     let w = rect_width (ddDecoRect dd)
         h = rect_height (ddDecoRect dd)
-        font = ddStyleState dd
+        font = ddEngineState dd
     withDisplay $ \dpy -> do
-      width <- fi <$> textWidthXMF dpy (ddStyleState dd) str
+      width <- fi <$> textWidthXMF dpy (ddEngineState dd) str
       (a, d) <- textExtentsXMF font str
       let height = a + d
           y = fi $ (h - fi height) `div` 2

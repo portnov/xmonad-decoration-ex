@@ -55,7 +55,7 @@ instance (Show widget, Read widget, Read (WidgetCommand widget), Show (WidgetCom
 -- | Auxiliary type for data which are passed from
 -- decoration layout modifier to decoration engine.
 data DrawData engine = DrawData {
-    ddStyleState :: !(DecorationEngineState engine)     -- ^ Decoration engine state
+    ddEngineState :: !(DecorationEngineState engine)     -- ^ Decoration engine state
   , ddStyle :: !(Style (Theme engine (Widget engine)))  -- ^ Graphics style of the decoration. This defines colors, fonts etc
                                                         -- which are to be used for this particular window in it's current state.
   , ddOrigWindow :: !Window                             -- ^ Original window to be decorated
@@ -328,7 +328,7 @@ mkDrawData engine shrinker theme decoState origWindow decoRect@(Rectangle _ _ wh
     name  <- fmap (take 2048 . takeWhile (/= '\n') . show) (getName origWindow)
     style <- selectWindowStyle theme origWindow
     return $ DrawData {
-                   ddStyleState = decoState,
+                   ddEngineState = decoState,
                    ddStyle = style,
                    ddOrigWindow = origWindow,
                    ddWindowTitle = name,
