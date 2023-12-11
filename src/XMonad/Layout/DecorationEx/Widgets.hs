@@ -30,34 +30,46 @@ data StandardCommand =
   deriving (Eq, Show, Read)
 
 instance WindowCommand StandardCommand where
-  executeWindowCommand FocusWindow w = focus w
+  executeWindowCommand FocusWindow w = do
+    focus w
+    return False
   executeWindowCommand FocusUp _ = do
     windows W.focusUp
     withFocused maximizeWindowAndFocus
+    return True
   executeWindowCommand FocusDown _ = do
     windows W.focusDown
     withFocused maximizeWindowAndFocus
+    return True
   executeWindowCommand MoveToNextGroup w = do
     focus w
     Ex.moveToGroupDown False
+    return True
   executeWindowCommand MoveToPrevGroup w = do
     focus w
     Ex.moveToGroupUp False
-  executeWindowCommand CloseWindow w = killWindow w
+    return True
+  executeWindowCommand CloseWindow w = do
+    killWindow w
+    return True
   executeWindowCommand DwmPromote w = do
     focus w
     dwmpromote
+    return True
   executeWindowCommand ToggleSticky w = do
     focus w
     copies <- CW.wsContainingCopies
     if null copies
       then windows CW.copyToAll
       else CW.killAllOtherCopies
+    return True
   executeWindowCommand ToggleMaximize w = do
     sendMessage $ maximizeRestore w
     focus w
-  executeWindowCommand Minimize w =
+    return True
+  executeWindowCommand Minimize w = do
     minimizeWindow w
+    return True
 
   isCommandChecked FocusWindow _ = return False
   isCommandChecked DwmPromote w = do

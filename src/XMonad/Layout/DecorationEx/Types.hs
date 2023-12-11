@@ -36,7 +36,7 @@ data WindowDecoration = WindowDecoration {
   }
 
 class (Read cmd, Show cmd) => WindowCommand cmd where
-  executeWindowCommand :: cmd -> Window -> X ()
+  executeWindowCommand :: cmd -> Window -> X Bool
   isCommandChecked :: cmd -> Window -> X Bool
 
 class (WindowCommand (WidgetCommand widget), Read widget, Show widget)

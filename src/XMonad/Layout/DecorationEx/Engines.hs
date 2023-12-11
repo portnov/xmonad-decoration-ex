@@ -401,7 +401,6 @@ decorationHandler deco theme decoRect widgetPlaces window x y button = do
       else case onDecorationClick theme button of
              Just cmd -> do
                executeWindowCommand cmd window
-               return True
              Nothing -> return False
   where
     go :: [(Widget engine, Rectangle)] -> X Bool
@@ -410,7 +409,6 @@ decorationHandler deco theme decoRect widgetPlaces window x y button = do
       if pointWithin (fi x) (fi y) rect
         then do
           executeWindowCommand (widgetCommand w button) window
-          return True
         else go rest
 
 defaultPaintDecoration :: forall engine shrinker.
