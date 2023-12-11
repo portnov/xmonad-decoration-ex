@@ -17,7 +17,7 @@ import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.Engines
 
 data StandardCommand =
-      Noop
+      FocusWindow
     | FocusUp
     | FocusDown
     | MoveToNextGroup
@@ -30,7 +30,7 @@ data StandardCommand =
   deriving (Eq, Show, Read)
 
 instance WindowCommand StandardCommand where
-  executeWindowCommand Noop w = focus w
+  executeWindowCommand FocusWindow w = focus w
   executeWindowCommand FocusUp _ = do
     windows W.focusUp
     withFocused maximizeWindowAndFocus
@@ -59,7 +59,7 @@ instance WindowCommand StandardCommand where
   executeWindowCommand Minimize w =
     minimizeWindow w
 
-  isCommandChecked Noop _ = return False
+  isCommandChecked FocusWindow _ = return False
   isCommandChecked DwmPromote w = do
       withWindowSet $ \ws -> return $ Just w == master ws
     where
@@ -86,9 +86,9 @@ data StandardWidget =
 instance DecorationWidget StandardWidget where
   type WidgetCommand StandardWidget = StandardCommand
 
-  widgetCommand TitleWidget _ = Noop
+  widgetCommand TitleWidget _ = FocusWindow
   widgetCommand w 1 = swCommand w
-  widgetCommand _ _ = Noop
+  widgetCommand _ _ = FocusWindow
 
   isShrinkable TitleWidget = True
   isShrinkable _ = False
