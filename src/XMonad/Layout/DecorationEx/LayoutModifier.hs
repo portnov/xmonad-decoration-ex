@@ -105,7 +105,7 @@ instance (DecorationEngine engine Window, DecorationGeometry geom Window, Shrink
           resync decoState dd ((window,rect):xs) =
             case  window `elemIndex` getOrigWindows dd of
               Just i  -> do
-                mbDecoRect <- decorateWindow geom (decorationSize theme) screenRect stack srcPairs (window,rect)
+                mbDecoRect <- decorateWindow geom screenRect stack srcPairs (window,rect)
                 widgetPlaces <- case mbDecoRect of
                                   Nothing -> return $ WidgetLayout [] [] []
                                   Just decoRect -> placeWidgets engine theme shrinker decoState decoRect window (themeWidgets theme)
@@ -208,7 +208,7 @@ createDecos :: (DecorationEngine engine Window, DecorationGeometry geom Window, 
             -> W.Stack Window
             -> [(Window,Rectangle)] -> [(Window,Rectangle)] -> X [WindowDecoration]
 createDecos theme engine geom shrinker decoState screenRect stack wrs ((w,r):xs) = do
-  mbDecoRect <- decorateWindow geom (decorationSize theme) screenRect stack wrs (w,r)
+  mbDecoRect <- decorateWindow geom screenRect stack wrs (w,r)
   case mbDecoRect of
     Just decoRect -> do
       decoWindow <- createDecoWindow engine theme decoRect

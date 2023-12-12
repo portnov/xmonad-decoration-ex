@@ -14,7 +14,6 @@ module XMonad.Layout.DecorationEx.Types (
   , WidgetLayout (..)
   , HasWidgets (..)
   , ClickHandler (..)
-  , HasDecorationSize (..), DecorationSize
   , ThemeAttributes (..)
   , XPaintingContext
   , BoxBorders (..), BorderColors, borderColor, shadowBorder
@@ -89,12 +88,7 @@ class ClickHandler theme widget where
   onDecorationClick :: theme widget -> Int -> Maybe (WidgetCommand widget)
   isDraggingEnabled :: theme widget -> Int -> Bool
 
-type DecorationSize = (Dimension, Dimension)
-
-class HasDecorationSize theme where
-  decorationSize :: theme -> DecorationSize
-
-class (Read theme, Show theme, HasDecorationSize theme) => ThemeAttributes theme where
+class (Read theme, Show theme) => ThemeAttributes theme where
   type Style theme
   selectWindowStyle :: theme -> Window -> X (Style theme)
   widgetsPadding :: theme -> BoxBorders Dimension
@@ -102,18 +96,16 @@ class (Read theme, Show theme, HasDecorationSize theme) => ThemeAttributes theme
   themeFontName :: theme -> String
 
 data GenericTheme style widget = GenericTheme {
-    exActive :: style
-  , exInactive :: style
-  , exUrgent :: style
-  , exPadding :: BoxBorders Dimension
-  , exFontName :: String
-  , exDecoWidth :: Dimension
-  , exDecoHeight :: Dimension
-  , exOnDecoClick :: M.Map Int (WidgetCommand widget)
-  , exDragWindowButtons :: [Int]
-  , exWidgetsLeft :: [widget]
-  , exWidgetsCenter :: [widget]
-  , exWidgetsRight :: [widget]
+    exActive :: !style
+  , exInactive :: !style
+  , exUrgent :: !style
+  , exPadding :: !(BoxBorders Dimension)
+  , exFontName :: !String
+  , exOnDecoClick :: !(M.Map Int (WidgetCommand widget))
+  , exDragWindowButtons :: ![Int]
+  , exWidgetsLeft :: ![widget]
+  , exWidgetsCenter :: ![widget]
+  , exWidgetsRight :: ![widget]
   }
 
 deriving instance (Show widget, Show (WidgetCommand widget), Show style) => Show (GenericTheme style widget)

@@ -41,9 +41,6 @@ import XMonad.Hooks.UrgencyHook
 
 import XMonad.Layout.DecorationEx.Types
 
-instance HasDecorationSize (ThemeEx widget) where
-  decorationSize t = (exDecoWidth t, exDecoHeight t)
-
 instance (Show widget, Read widget, Read (WidgetCommand widget), Show (WidgetCommand widget))
         => ThemeAttributes (ThemeEx widget) where
   type Style (ThemeEx widget) = SimpleStyle
@@ -94,36 +91,40 @@ class (Read (geom a), Show (geom a),
     -- The method should return a rectangle where to place window decoration,
     -- or Nothing if this window is not to be decorated.
     pureDecoration :: geom a          -- ^ Decoration geometry instance
-                   -> DecorationSize  -- ^ Size of decoration rectangle, as defined by theme
                    -> Rectangle       -- ^ Screen rectangle
                    -> W.Stack a       -- ^ Current stack of windows being displayed
                    -> [(a,Rectangle)] -- ^ Set of all windows with their corresponding rectangle
                    -> (a,Rectangle)   -- ^ Window being decorated and it's rectangle
                    -> Maybe Rectangle
-    pureDecoration _ (decoWidth, decoHeight) _ s _ (w, Rectangle x y windowWidth windowHeight) =
-      if isInStack s w && (decoHeight < windowHeight)
-        then Just $ Rectangle x y windowWidth decoHeight
-        else Nothing
 
     -- | The method should return a rectangle where to place window decoration,
     -- or Nothing if this window is not to be decorated.
     decorateWindow :: geom a           -- ^ Decoration geometry instance
-                   -> DecorationSize   -- ^ Size of decoration rectangle, as defined by theme
                    -> Rectangle        -- ^ Screen rectangle
                    -> W.Stack a        -- ^ Current stack of windows being displayed
                    -> [(a, Rectangle)] -- ^ Set of all windows with their corresponding rectangle
                    -> (a, Rectangle)   -- ^ Window being decorated and it's rectangle
                    -> X (Maybe Rectangle)
-    decorateWindow geom size r s wrs wr = return $ pureDecoration geom size r s wrs wr
+    decorateWindow geom r s wrs wr = return $ pureDecoration geom r s wrs wr
 
 -- | Data type for default implementation of DecorationGeometry.
 -- This defines simple decorations: a horizontal bar at the top of each window,
 -- running for full width of the window.
-data DefaultGeometry a = DefaultGeometry
+newtype DefaultGeometry a = DefaultGeometry {
+    gDecorationHeight :: Dimension
+  }
   deriving (Read, Show)
 
 instance Eq a => DecorationGeometry DefaultGeometry a where
-  describeGeometry _ = "FullWidth"
+  describeGeometry _ = "Default"
+
+  pureDecoration (DefaultGeometry {..}) _ s _ (w, Rectangle x y windowWidth windowHeight) =
+      if isInStack s w && (gDecorationHeight < windowHeight)
+        then Just $ Rectangle x y windowWidth gDecorationHeight
+        else Nothing
+
+instance Default (DefaultGeometry a) where
+  def = DefaultGeometry 20
 
 -- | Decoration engines type class.
 -- Decoration engine is responsible for drawing something inside decoration rectangle.

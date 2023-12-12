@@ -2,11 +2,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module XMonad.Layout.DecorationEx.DwmGeometry (
     DwmGeometry (..),
-    dwmStyleDeco
+    dwmStyleDeco, dwmStyleDecoEx
   ) where 
+
+import Data.Default
 
 import XMonad
 import qualified XMonad.StackSet as W
@@ -20,30 +23,54 @@ import XMonad.Layout.DecorationEx.Widgets
 import XMonad.Layout.DecorationEx.TextEngine
 
 -- | Decoration geometry data type
-newtype DwmGeometry a = DwmGeometry Bool
+data DwmGeometry a = DwmGeometry {
+      dwmShowForFocused :: !Bool
+    , dwmHorizontalPosition :: !Rational
+    , dwmDecoHeight :: !Dimension
+    , dwmDecoWidth :: !Dimension
+  }
   deriving (Show, Read)
 
-instance DecorationGeometry DwmGeometry Window where
-  describeGeometry _ = "DwmText"
+instance Default (DwmGeometry a) where
+  def = DwmGeometry False 1 20 200
 
-  pureDecoration (DwmGeometry showForFocused) (decoWidth, decoHeight) screenRect stack wrs (w, Rectangle x y windowWidth windowHeight) =
-    let nwh = min windowWidth $ fromIntegral decoWidth
-        nx = fromIntegral x + windowWidth - nwh
+fi :: (Integral a, Num b) => a -> b
+fi = fromIntegral
+
+instance DecorationGeometry DwmGeometry Window where
+  describeGeometry _ = "DwmStyle"
+
+  pureDecoration (DwmGeometry {..}) screenRect stack wrs (w, Rectangle x y windowWidth windowHeight) =
+    let width = min windowWidth dwmDecoWidth
+        halfWidth = width `div` 2
+        minCenterX = x + fi halfWidth
+        maxCenterX = x + fi windowWidth - fromIntegral halfWidth
+        centerX = round $ (1 - dwmHorizontalPosition)*fi minCenterX + dwmHorizontalPosition*fi maxCenterX
+        decoX = centerX - fi halfWidth
         focusedWindow = W.focus stack
         isFocused = focusedWindow == w
-    in  if (not showForFocused && isFocused) || not (D.isInStack stack w)
+    in  if (not dwmShowForFocused && isFocused) || not (D.isInStack stack w)
           then Nothing
-          else Just $ Rectangle (fromIntegral nx) y nwh (fromIntegral decoHeight)
+          else Just $ Rectangle (fi decoX) y width dwmDecoHeight
 
-  shrinkWindow _ _ r = r
+  shrinkWindow _ decoRect windowRect = windowRect
+
+-- | Add a decoration to window layout. Widgets are indicated with text fragments using TextDecoration;
+-- decoration placement can be adjusted.
+dwmStyleDecoEx :: D.Shrinker shrinker    
+             => shrinker               -- ^ Strings shrinker, for example @shrinkText@
+             -> DwmGeometry Window
+             -> ThemeEx StandardWidget -- ^ Decoration theme (font, colors, widgets, etc)
+             -> l Window               -- ^ Layout to be decorated
+             -> ModifiedLayout (DecorationEx TextDecoration DwmGeometry shrinker) l Window
+dwmStyleDecoEx shrinker geom theme = decorationEx shrinker theme TextDecoration geom
 
 -- | Add a decoration to window layout. Widgets are indicated with text fragments using TextDecoration;
 -- decoration placement is similar to DWM.
 dwmStyleDeco :: D.Shrinker shrinker    
              => shrinker               -- ^ Strings shrinker, for example @shrinkText@
              -> ThemeEx StandardWidget -- ^ Decoration theme (font, colors, widgets, etc)
-             -> Bool                   -- ^ If True, show decoration for active window as well
              -> l Window               -- ^ Layout to be decorated
              -> ModifiedLayout (DecorationEx TextDecoration DwmGeometry shrinker) l Window
-dwmStyleDeco s theme showForFocused = decorationEx s theme TextDecoration (DwmGeometry showForFocused)
+dwmStyleDeco shrinker = dwmStyleDecoEx shrinker def
 

@@ -127,5 +127,5 @@ textDecoration :: (Shrinker shrinker)
                -> ThemeEx StandardWidget  -- ^ Decoration theme (font, colors, widgets, etc)
                -> l Window                -- ^ Layout to be decorated
              -> ModifiedLayout (DecorationEx TextDecoration DefaultGeometry shrinker) l Window
-textDecoration shrinker theme = decorationEx shrinker theme TextDecoration DefaultGeometry
+textDecoration shrinker theme = decorationEx shrinker theme TextDecoration def
 
