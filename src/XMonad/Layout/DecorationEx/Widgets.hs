@@ -85,18 +85,20 @@ instance WindowCommand StandardCommand where
     return $ not $ null copies
   isCommandChecked _ _ = return False
 
-data StandardWidget =
+data GenericWidget cmd =
       TitleWidget
-    | StandardWidget {
+    | GenericWidget {
       swCheckedText :: String,
       swUncheckedText :: String,
-      swCommand :: StandardCommand
+      swCommand :: cmd
     }
     deriving (Show, Read)
 
+type StandardWidget = GenericWidget StandardCommand
 
-instance DecorationWidget StandardWidget where
-  type WidgetCommand StandardWidget = StandardCommand
+instance DecorationWidget (GenericWidget StandardCommand) where
+
+  type WidgetCommand (GenericWidget StandardCommand) = StandardCommand
 
   widgetCommand TitleWidget _ = FocusWindow
   widgetCommand w 1 = swCommand w
@@ -120,11 +122,11 @@ instance TextWidget StandardWidget where
         else return $ swUncheckedText w
 
 titleW = TitleWidget
-toggleStickyW = StandardWidget "[S]" "[s]" ToggleSticky
-minimizeW = StandardWidget "" "[_]" Minimize
-maximizeW = StandardWidget "" "[O]" ToggleMaximize
-closeW = StandardWidget "" "[X]" CloseWindow
-dwmpromoteW = StandardWidget "[M]" "[m]" DwmPromote
-moveToNextGroupW = StandardWidget "" "[>]" MoveToNextGroup
-moveToPrevGroupW = StandardWidget "" "[<]" MoveToPrevGroup
+toggleStickyW = GenericWidget "[S]" "[s]" ToggleSticky
+minimizeW = GenericWidget "" "[_]" Minimize
+maximizeW = GenericWidget "" "[O]" ToggleMaximize
+closeW = GenericWidget "" "[X]" CloseWindow
+dwmpromoteW = GenericWidget "[M]" "[m]" DwmPromote
+moveToNextGroupW = GenericWidget "" "[>]" MoveToNextGroup
+moveToPrevGroupW = GenericWidget "" "[<]" MoveToPrevGroup
 
