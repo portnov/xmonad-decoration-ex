@@ -5,6 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -45,16 +46,16 @@ import XMonad.Layout.DecorationEx.Widgets
 -- This module defines simple text-based window decoration engine.
 
 -- | Decoration engine data type
-data TextDecoration a = TextDecoration
+data TextDecoration widget a = TextDecoration
   deriving (Show, Read)
 
 instance ClickHandler (GenericTheme SimpleStyle) StandardWidget where
   onDecorationClick theme button = M.lookup button (exOnDecoClick theme)
   isDraggingEnabled theme button = button `elem` exDragWindowButtons theme
 
-instance DecorationEngine TextDecoration Window where
+instance (TextWidget widget, ClickHandler (GenericTheme SimpleStyle) widget)
+  => DecorationEngine TextDecoration widget Window where
   type Theme TextDecoration = GenericTheme SimpleStyle
-  type Widget TextDecoration = StandardWidget
   type DecorationPaintingContext TextDecoration = XPaintingContext
   type DecorationEngineState TextDecoration = XMonadFont
 
@@ -72,18 +73,18 @@ instance DecorationEngine TextDecoration Window where
   placeWidgets = defaultPlaceWidgets
 
 -- | Implementation of @paintWidget@ for decoration engines based on @TextDecoration@.
-paintTextWidget :: (Widget engine ~ StandardWidget,
-                    Style (ThemeW engine) ~ SimpleStyle,
+paintTextWidget :: (TextWidget widget,
+                    Style (Theme engine widget) ~ SimpleStyle,
                     DecorationPaintingContext engine ~ XPaintingContext,
                     DecorationEngineState engine ~ XMonadFont,
                     Shrinker shrinker,
-                    DecorationEngine engine Window)
-                => engine Window
+                    DecorationEngine engine widget Window)
+                => engine widget Window
                 -> DecorationPaintingContext engine
                 -> WidgetPlace
                 -> shrinker
-                -> DrawData engine
-                -> Widget engine
+                -> DrawData engine widget
+                -> widget
                 -> Bool
                 -> X ()
 paintTextWidget engine (dpy, pixmap, gc) place shrinker dd widget isExpose = do
@@ -98,12 +99,12 @@ paintTextWidget engine (dpy, pixmap, gc) place shrinker dd widget isExpose = do
     printStringXMF dpy pixmap (ddEngineState dd) gc (sTextColor style) (sTextBgColor style) x y str'
 
 -- | Implementation of @calcWidgetPlace@ for decoration engines based on @TextDecoration@.
-calcTextWidgetPlace :: (Widget engine ~ StandardWidget,
+calcTextWidgetPlace :: (TextWidget widget,
                         DecorationEngineState engine ~ XMonadFont,
-                        DecorationEngine engine Window)
-                    => engine Window
-                    -> DrawData engine
-                    -> Widget engine
+                        DecorationEngine engine widget Window)
+                    => engine widget Window
+                    -> DrawData engine widget
+                    -> widget
                     -> X WidgetPlace
 calcTextWidgetPlace deco dd widget = do
     str <- widgetString dd widget
@@ -124,8 +125,8 @@ calcTextWidgetPlace deco dd widget = do
 -- of the window.
 textDecoration :: (Shrinker shrinker)
                => shrinker                -- ^ String shrinker, for example @shrinkText@
-               -> ThemeEx StandardWidget  -- ^ Decoration theme (font, colors, widgets, etc)
+               -> Theme TextDecoration StandardWidget  -- ^ Decoration theme (font, colors, widgets, etc)
                -> l Window                -- ^ Layout to be decorated
-             -> ModifiedLayout (DecorationEx TextDecoration DefaultGeometry shrinker) l Window
+             -> ModifiedLayout (DecorationEx TextDecoration StandardWidget DefaultGeometry shrinker) l Window
 textDecoration shrinker theme = decorationEx shrinker theme TextDecoration def
 

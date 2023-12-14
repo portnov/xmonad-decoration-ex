@@ -108,13 +108,16 @@ instance DecorationWidget StandardWidget where
 isWidgetChecked :: DecorationWidget widget => widget -> Window -> X Bool
 isWidgetChecked wdt = isCommandChecked (widgetCommand wdt 1)
 
-widgetString :: (Widget dstyle ~ StandardWidget) => DrawData dstyle -> Widget dstyle -> X String
-widgetString dd TitleWidget = return $ ddWindowTitle dd
-widgetString dd w = do
-  checked <- isWidgetChecked w (ddOrigWindow dd)
-  if checked
-    then return $ swCheckedText w
-    else return $ swUncheckedText w
+class DecorationWidget widget => TextWidget widget where
+  widgetString :: DrawData engine widget -> widget -> X String
+
+instance TextWidget StandardWidget where
+    widgetString dd TitleWidget = return $ ddWindowTitle dd
+    widgetString dd w = do
+      checked <- isWidgetChecked w (ddOrigWindow dd)
+      if checked
+        then return $ swCheckedText w
+        else return $ swUncheckedText w
 
 titleW = TitleWidget
 toggleStickyW = StandardWidget "[S]" "[s]" ToggleSticky

@@ -62,7 +62,7 @@ dwmStyleDecoEx :: D.Shrinker shrinker
              -> DwmGeometry Window
              -> ThemeEx StandardWidget -- ^ Decoration theme (font, colors, widgets, etc)
              -> l Window               -- ^ Layout to be decorated
-             -> ModifiedLayout (DecorationEx TextDecoration DwmGeometry shrinker) l Window
+             -> ModifiedLayout (DecorationEx TextDecoration StandardWidget DwmGeometry shrinker) l Window
 dwmStyleDecoEx shrinker geom theme = decorationEx shrinker theme TextDecoration geom
 
 -- | Add a decoration to window layout. Widgets are indicated with text fragments using TextDecoration;
@@ -71,6 +71,6 @@ dwmStyleDeco :: D.Shrinker shrinker
              => shrinker               -- ^ Strings shrinker, for example @shrinkText@
              -> ThemeEx StandardWidget -- ^ Decoration theme (font, colors, widgets, etc)
              -> l Window               -- ^ Layout to be decorated
-             -> ModifiedLayout (DecorationEx TextDecoration DwmGeometry shrinker) l Window
+             -> ModifiedLayout (DecorationEx TextDecoration StandardWidget DwmGeometry shrinker) l Window
 dwmStyleDeco shrinker = dwmStyleDecoEx shrinker def
 
