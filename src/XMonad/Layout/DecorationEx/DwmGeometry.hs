@@ -8,7 +8,6 @@
 -- |
 -- Module      :  XMonad.Layout.DecorationEx.DwmGeometry
 -- Description :  DWM-style window decoration geometry
---                of window decorations
 -- Copyright   :  (c) 2007 Andrea Rossato, 2023 Ilya Portnov
 -- License     :  BSD-style (see xmonad/LICENSE)
 --
