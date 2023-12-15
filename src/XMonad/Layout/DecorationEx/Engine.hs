@@ -81,27 +81,32 @@ class (Read (engine widget a), Show (engine widget a),
        ThemeAttributes (Theme engine widget))
     => DecorationEngine engine widget a where
 
-    type Theme engine :: * -> *           -- ^ Type of themes used by decoration engine.
-                                          -- This type must be parametrized over widget type,
-                                          -- because theme will contain a list of widgets.
-    type DecorationPaintingContext engine -- ^ Type of data used by engine as a context during painting;
-                                          -- for plain X11-based implementation this is Display, Pixmap
-                                          -- and GC.
-    type DecorationEngineState engine     -- ^ Type of state used by the decoration engine.
-                                          -- ^ This can contain some resources that should be initialized
-                                          -- and released at time, such as X11 fonts.
+    -- | Type of themes used by decoration engine.
+    -- This type must be parametrized over widget type,
+    -- because theme will contain a list of widgets.
+    type Theme engine :: * -> *           
+                                          
+    -- | Type of data used by engine as a context during painting;
+    -- for plain X11-based implementation this is Display, Pixmap
+    -- and GC.
+    type DecorationPaintingContext engine 
+ 
+    -- | Type of state used by the decoration engine.
+    -- This can contain some resources that should be initialized
+    -- and released at time, such as X11 fonts.
+    type DecorationEngineState engine     
 
     -- | Give a name to decoration engine.
     describeEngine :: engine widget a -> String
 
     -- | Initialize state of the engine.
-    initializeState :: engine widget a        -- ^ Decoration engine instance
-                    -> geom a          -- ^ Decoration geometry instance
+    initializeState :: engine widget a       -- ^ Decoration engine instance
+                    -> geom a                -- ^ Decoration geometry instance
                     -> Theme engine widget   -- ^ Theme to be used
                     -> X (DecorationEngineState engine)
 
     -- | Release resources held in engine state.
-    releaseStateResources :: engine widget a                     -- ^ Decoration engine instance
+    releaseStateResources :: engine widget a              -- ^ Decoration engine instance
                           -> DecorationEngineState engine -- ^ Engine state
                           -> X ()
 
@@ -112,20 +117,31 @@ class (Read (engine widget a), Show (engine widget a),
     -- on the decoration bar, it only should calculate how much space the widget
     -- will take, so that later we could place the widget corresponding to
     -- widgets order and alignments.
-    calcWidgetPlace :: engine widget a -> DrawData engine widget -> widget -> X WidgetPlace
+    calcWidgetPlace :: engine widget a         -- ^ Decoration engine instance
+                    -> DrawData engine widget  -- ^ Information about window and decoration
+                    -> widget                  -- ^ Widget to be placed
+                    -> X WidgetPlace
 
     -- | Place widgets along the decoration bar.
     placeWidgets :: Shrinker shrinker
-                 => engine widget a                     -- ^ Decoration engine instance
+                 => engine widget a              -- ^ Decoration engine instance
                  -> Theme engine widget          -- ^ Theme to be used
                  -> shrinker                     -- ^ Strings shrinker
                  -> DecorationEngineState engine -- ^ Current state of the engine
                  -> Rectangle                    -- ^ Decoration rectangle
                  -> Window                       -- ^ Original window to be decorated
-                 -> WidgetLayout widget -- ^ Widgets layout
+                 -> WidgetLayout widget          -- ^ Widgets layout
                  -> X (WidgetLayout WidgetPlace)
 
-    getShrinkedWindowName :: Shrinker shrinker => engine widget a -> shrinker -> DecorationEngineState engine -> String -> Dimension -> Dimension -> X String
+    -- | Shrink window title so that it would fit in decoration.
+    getShrinkedWindowName :: Shrinker shrinker
+                          => engine widget a              -- ^ Decoration engine instance
+                          -> shrinker                     -- ^ Strings shrinker
+                          -> DecorationEngineState engine -- ^ State of decoration engine
+                          -> String                       -- ^ Original window title
+                          -> Dimension                    -- ^ Width of rectangle in which the title should fit
+                          -> Dimension                    -- ^ Height of rectangle in which the title should fit
+                          -> X String
 
     default getShrinkedWindowName :: (Shrinker shrinker, DecorationEngineState engine ~ XMonadFont)
                                   => engine widget a -> shrinker -> DecorationEngineState engine -> String -> Dimension -> Dimension -> X String
@@ -135,24 +151,68 @@ class (Read (engine widget a), Show (engine widget a),
       shrinkWhile s (\n -> do size <- io $ textWidthXMF dpy font n
                               return $ size > fromIntegral wh - fromIntegral (ht `div` 2)) name
 
+    -- | Mask of X11 events on which the decoration engine should do something.
+    -- @exposureMask@ should be included here so that decoration engine could
+    -- repaint decorations when they are shown on screen.
+    -- @buttonPressMask@ should be included so that decoration engine could
+    -- response to mouse clicks.
+    -- Other events can be added to custom implementations of DecorationEngine.
     decorationXEventMask :: engine widget a -> EventMask
     decorationXEventMask _ = exposureMask .|. buttonPressMask
 
+    -- | List of X11 window property atoms of original (client) windows,
+    -- change of which should trigger repainting of decoration.
+    -- For example, if @WM_NAME@ changes it means that we have to redraw
+    -- window title.
     propsToRepaintDecoration :: engine widget a -> X [Atom]
     propsToRepaintDecoration _ =
       mapM getAtom ["WM_NAME", "_NET_WM_NAME", "WM_STATE", "WM_HINTS"]
 
-    decorationEventHookEx :: Shrinker shrinker => engine widget a -> Theme engine widget -> DecorationLayoutState engine -> shrinker -> Event -> X ()
+    -- | Generic event handler, which recieves X11 events on decoration
+    -- window.
+    -- Default implementation handles mouse clicks and drags.
+    decorationEventHookEx :: Shrinker shrinker
+                          => engine widget a
+                          -> Theme engine widget
+                          -> DecorationLayoutState engine
+                          -> shrinker
+                          -> Event
+                          -> X ()
     decorationEventHookEx = handleMouseFocusDrag
 
-    handleDecorationClick :: engine widget a -> Theme engine widget -> Rectangle -> [Rectangle] -> Window -> Int -> Int -> Int -> X Bool
+    -- | Event handler for clicks on decoration window.
+    -- This is called from default implementation of "decorationEventHookEx".
+    -- This should return True, if the click was handled (something happened
+    -- because of that click). If this returns False, the click can be considered
+    -- as a beginning of mouse drag.
+    handleDecorationClick :: engine widget a      -- ^ Decoration engine instance
+                          -> Theme engine widget  -- ^ Decoration theme
+                          -> Rectangle            -- ^ Decoration rectangle
+                          -> [Rectangle]          -- ^ Rectangles where widgets are placed
+                          -> Window               -- ^ Original (client) window
+                          -> Int                  -- ^ Mouse click X coordinate
+                          -> Int                  -- ^ Mouse click Y coordinate
+                          -> Int                  -- ^ Mouse button number
+                          -> X Bool
     handleDecorationClick = decorationHandler
 
-    decorationWhileDraggingHook :: engine widget a -> CInt -> CInt -> (Window, Rectangle) -> Position -> Position -> X ()
+    -- | Event handler which is called during mouse dragging.
+    -- This is called from default implementation of "decorationEventHookEx".
+    decorationWhileDraggingHook :: engine widget a
+                                -> CInt
+                                -> CInt
+                                -> (Window, Rectangle)
+                                -> Position
+                                -> Position
+                                -> X ()
     decorationWhileDraggingHook _ = handleDraggingInProgress
 
     -- | This hoook is called after a window has been dragged using the decoration.
-    decorationAfterDraggingHook :: engine widget a -> (Window, Rectangle) -> Window -> X ()
+    -- This is called from default implementation of "decorationEventHookEx".
+    decorationAfterDraggingHook :: engine widget a
+                                -> (Window, Rectangle)
+                                -> Window
+                                -> X ()
     decorationAfterDraggingHook _ds (w, _r) decoWin = do
       focus w
       hasCrossed <- handleScreenCrossing w decoWin

@@ -1,5 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
-module XMonad.Layout.DecorationEx.Theme where
+module XMonad.Layout.DecorationEx.Theme (
+    themeEx
+  ) where
 
 import Data.Default
 import qualified Data.Map as M

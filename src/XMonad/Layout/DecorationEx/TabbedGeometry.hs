@@ -4,7 +4,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module XMonad.Layout.DecorationEx.TabbedGeometry where 
+module XMonad.Layout.DecorationEx.TabbedGeometry (
+    TabbedGeometry (..),
+    textTabbed,
+    HorizontalTabPlacement (..),
+    VerticalTabPlacement (..),
+    HorizontalTabWidth (..),
+    HorizontalTabsAlignment (..),
+    SingleTabMode (..)
+  ) where 
 
 import Data.Default
 

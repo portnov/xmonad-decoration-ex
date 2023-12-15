@@ -3,7 +3,16 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module XMonad.Layout.DecorationEx.Widgets where 
+module XMonad.Layout.DecorationEx.Widgets (
+    StandardCommand (..),
+    TextWidget (..),
+    GenericWidget (..),
+    StandardWidget,
+    isWidgetChecked,
+    titleW, toggleStickyW, minimizeW,
+    maximizeW, closeW, dwmpromoteW,
+    moveToNextGroupW,moveToPrevGroupW
+  ) where 
 
 import XMonad
 import qualified XMonad.StackSet as W
@@ -16,17 +25,29 @@ import XMonad.Actions.Minimize
 import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.Engine
 
+-- | Standard window commands.
+--
+-- One can extend this list by simply doing
+--
+-- > data MyWindowCommand =
+-- >     Std StandardCommand
+-- >   | SomeFancyCommand
+--
+-- > instance WindowCommand MyWindowCommand where ...
+--
+-- > type MyWidget = GenericWidget MyWindowCommand
+--
 data StandardCommand =
-      FocusWindow
-    | FocusUp
-    | FocusDown
-    | MoveToNextGroup
-    | MoveToPrevGroup
-    | DwmPromote
-    | ToggleSticky
-    | ToggleMaximize
-    | Minimize
-    | CloseWindow
+      FocusWindow      -- ^ Focus the window
+    | FocusUp          -- ^ Move focus to previous window
+    | FocusDown        -- ^ Move focus to following window
+    | MoveToNextGroup  -- ^ Move the window to the next group (see "XMonad.Layout.Groups")
+    | MoveToPrevGroup  -- ^ Move the window to the previous group
+    | DwmPromote       -- ^ Execute @dwmpromote@ (see "XMonad.Actions.DwmPromote")
+    | ToggleSticky     -- ^ Make window sticky or unstick it (see "XMonad.Actions.CopyWindow")
+    | ToggleMaximize   -- ^ Maximize or restore window (see "XMonad.Layout.Maximize")
+    | Minimize         -- ^ Minimize window (see "XMonad.Actions.Minimize")
+    | CloseWindow      -- ^ Close the window
   deriving (Eq, Show, Read)
 
 instance WindowCommand StandardCommand where
@@ -85,15 +106,17 @@ instance WindowCommand StandardCommand where
     return $ not $ null copies
   isCommandChecked _ _ = return False
 
+-- | Generic data type for decoration widgets.
 data GenericWidget cmd =
       TitleWidget
     | GenericWidget {
-      swCheckedText :: String,
-      swUncheckedText :: String,
-      swCommand :: cmd
+      swCheckedText :: !String,
+      swUncheckedText :: !String,
+      swCommand :: !cmd
     }
     deriving (Show, Read)
 
+-- | Generic widget type specialized for StandardCommand
 type StandardWidget = GenericWidget StandardCommand
 
 instance DecorationWidget (GenericWidget StandardCommand) where
@@ -107,9 +130,12 @@ instance DecorationWidget (GenericWidget StandardCommand) where
   isShrinkable TitleWidget = True
   isShrinkable _ = False
 
+-- | Check if the widget should be displayed in `checked' state.
 isWidgetChecked :: DecorationWidget widget => widget -> Window -> X Bool
 isWidgetChecked wdt = isCommandChecked (widgetCommand wdt 1)
 
+-- | Type class for widgets that can be displayed as
+-- text fragments by TextDecoration engine.
 class DecorationWidget widget => TextWidget widget where
   widgetString :: DrawData engine widget -> widget -> X String
 
@@ -121,12 +147,32 @@ instance TextWidget StandardWidget where
         then return $ swCheckedText w
         else return $ swUncheckedText w
 
+-- | Widget for window title
+titleW :: StandardWidget
 titleW = TitleWidget
+
+-- | Widget for ToggleSticky command.
+toggleStickyW :: StandardWidget
 toggleStickyW = GenericWidget "[S]" "[s]" ToggleSticky
+
+-- | Widget for Minimize command
+minimizeW :: StandardWidget
 minimizeW = GenericWidget "" "[_]" Minimize
+
+-- | Widget for ToggleMaximize command
+maximizeW :: StandardWidget
 maximizeW = GenericWidget "" "[O]" ToggleMaximize
+
+-- | Widget for CloseWindow command
+closeW :: StandardWidget
 closeW = GenericWidget "" "[X]" CloseWindow
+
+dwmpromoteW :: StandardWidget
 dwmpromoteW = GenericWidget "[M]" "[m]" DwmPromote
+
+moveToNextGroupW :: StandardWidget
 moveToNextGroupW = GenericWidget "" "[>]" MoveToNextGroup
+
+moveToPrevGroupW :: StandardWidget
 moveToPrevGroupW = GenericWidget "" "[<]" MoveToPrevGroup
 

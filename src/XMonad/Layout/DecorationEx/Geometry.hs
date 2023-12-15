@@ -20,7 +20,10 @@
 -- This module defines @DecorationGeometry@ type class, and default implementation for it.
 -----------------------------------------------------------------------------
 
-module XMonad.Layout.DecorationEx.Geometry where
+module XMonad.Layout.DecorationEx.Geometry (
+    DecorationGeometry (..),
+    DefaultGeometry (..)
+  ) where
 
 import XMonad
 import XMonad.Prelude

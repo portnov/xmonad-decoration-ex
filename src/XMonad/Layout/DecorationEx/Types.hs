@@ -26,28 +26,43 @@ import qualified Data.Map as M
 
 import XMonad
 
+-- | Information about decoration of one window
 data WindowDecoration = WindowDecoration {
-    wdOrigWindow :: Window
-  , wdOrigWinRect :: Rectangle
-  , wdDecoWindow :: Maybe Window
-  , wdDecoRect :: Maybe Rectangle
-  , wdWidgets :: [WidgetPlace]
+    wdOrigWindow :: !Window         -- ^ Original window (one being decorated)
+  , wdOrigWinRect :: !Rectangle     -- ^ Rectangle of original window
+  , wdDecoWindow :: !(Maybe Window) -- ^ Decoration window, or Nothing if this window should not be decorated
+  , wdDecoRect :: !(Maybe Rectangle) -- ^ Rectangle for decoration window
+  , wdWidgets :: ![WidgetPlace]      -- ^ Places for widgets
   }
 
+-- | Type class for window commands (such as maximize or close window)
 class (Read cmd, Show cmd) => WindowCommand cmd where
+  -- | Execute the command
   executeWindowCommand :: cmd -> Window -> X Bool
+
+  -- | Is the command currently in `checked' state. 
+  -- For example, for 'sticky' command, check if the
+  -- window is currently sticky.
   isCommandChecked :: cmd -> Window -> X Bool
 
+-- | Type class for decoration widgets
 class (WindowCommand (WidgetCommand widget), Read widget, Show widget)
   => DecorationWidget widget where
+  -- | Type of window commands which this type of widgets can execute
   type WidgetCommand widget
+
+  -- | Get window command which is associated with this widget.
   widgetCommand :: widget -> Int -> WidgetCommand widget
+
+  -- | Check if the widget is shrinkable, i.e. if it's width
+  -- can be reduced if there is not enough place in the decoration.
   isShrinkable :: widget -> Bool
 
+-- | Layout of widgets
 data WidgetLayout a = WidgetLayout {
-    wlLeft :: [a]
-  , wlCenter :: [a]
-  , wlRight :: [a]
+    wlLeft :: ![a]     -- ^ Widgets that should be aligned to the left side of decoration
+  , wlCenter :: ![a]   -- ^ Widgets that should be in the center of decoration
+  , wlRight :: ![a]    -- ^ Widgets taht should be aligned to the right side of decoration
   }
 
 data WidgetPlace = WidgetPlace {
