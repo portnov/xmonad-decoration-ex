@@ -14,7 +14,7 @@ import XMonad.Layout.Maximize
 import XMonad.Actions.Minimize
 
 import XMonad.Layout.DecorationEx.Types
-import XMonad.Layout.DecorationEx.Engines
+import XMonad.Layout.DecorationEx.Engine
 
 data StandardCommand =
       FocusWindow

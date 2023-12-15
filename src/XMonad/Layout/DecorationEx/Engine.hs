@@ -11,7 +11,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  XMonad.Layout.DecorationEx.Engines
+-- Module      :  XMonad.Layout.DecorationEx.Engine
 -- Description :  Type class and it's default implementation for window decoration engines.
 -- Copyright   :  (c) 2007 Andrea Rossato, 2009 Jan Vornberger, 2023 Ilya Portnov
 -- License     :  BSD-style (see xmonad/LICENSE)
@@ -23,7 +23,7 @@
 -- This module defines @DecorationEngine@ type class, and default implementation for it.
 -----------------------------------------------------------------------------
 
-module XMonad.Layout.DecorationEx.Engines where
+module XMonad.Layout.DecorationEx.Engine where
 
 import Control.Monad
 import Data.Bits (testBit)
