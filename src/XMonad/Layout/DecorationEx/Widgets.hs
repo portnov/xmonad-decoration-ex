@@ -109,6 +109,7 @@ instance WindowCommand StandardCommand where
 -- | Generic data type for decoration widgets.
 data GenericWidget cmd =
       TitleWidget
+    | WindowIcon { swCommand :: !cmd }
     | GenericWidget {
       swCheckedText :: !String,
       swUncheckedText :: !String,
@@ -141,6 +142,7 @@ class DecorationWidget widget => TextWidget widget where
 
 instance TextWidget StandardWidget where
     widgetString dd TitleWidget = return $ ddWindowTitle dd
+    widgetString dd (WindowIcon {}) = return "[*]"
     widgetString dd w = do
       checked <- isWidgetChecked w (ddOrigWindow dd)
       if checked
