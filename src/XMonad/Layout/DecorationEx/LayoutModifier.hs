@@ -19,6 +19,7 @@ import XMonad.Util.XUtils hiding (paintTextAndIcons)
 
 import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.Engines
+import XMonad.Layout.DecorationEx.Geometry
 
 -- | The 'Decoration' 'LayoutModifier'. This data type is an instance
 -- of the 'LayoutModifier' class. This data type will be passed,

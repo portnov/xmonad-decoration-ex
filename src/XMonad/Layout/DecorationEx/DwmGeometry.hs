@@ -18,7 +18,7 @@ import qualified XMonad.Layout.Decoration as D
 
 import XMonad.Layout.DecorationEx.LayoutModifier
 import XMonad.Layout.DecorationEx.Types
-import XMonad.Layout.DecorationEx.Engines
+import XMonad.Layout.DecorationEx.Geometry
 import XMonad.Layout.DecorationEx.Widgets
 import XMonad.Layout.DecorationEx.TextEngine
 
