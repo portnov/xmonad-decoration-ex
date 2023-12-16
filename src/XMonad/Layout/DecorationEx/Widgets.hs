@@ -21,6 +21,7 @@ import qualified XMonad.Actions.CopyWindow as CW
 import qualified XMonad.Layout.Groups.Examples as Ex
 import XMonad.Layout.Maximize
 import XMonad.Actions.Minimize
+import XMonad.Actions.WindowMenu
 
 import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.Engine
@@ -48,6 +49,7 @@ data StandardCommand =
     | ToggleMaximize   -- ^ Maximize or restore window (see "XMonad.Layout.Maximize")
     | Minimize         -- ^ Minimize window (see "XMonad.Actions.Minimize")
     | CloseWindow      -- ^ Close the window
+    | GridWindowMenu   -- ^ Show window menu via "XMonad.Actions.GridSelect" (see "XMonad.Actions.WindowMenu")
   deriving (Eq, Show, Read)
 
 instance WindowCommand StandardCommand where
@@ -90,6 +92,10 @@ instance WindowCommand StandardCommand where
     return True
   executeWindowCommand Minimize w = do
     minimizeWindow w
+    return True
+  executeWindowCommand GridWindowMenu w = do
+    focus w
+    windowMenu
     return True
 
   isCommandChecked FocusWindow _ = return False

@@ -6,7 +6,10 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module XMonad.Layout.DecorationEx.LayoutModifier where
+module XMonad.Layout.DecorationEx.LayoutModifier (
+    decorationEx,
+    DecorationEx
+  ) where
 
 import XMonad
 import XMonad.Prelude
@@ -21,18 +24,18 @@ import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.Engine
 import XMonad.Layout.DecorationEx.Geometry
 
--- | The 'Decoration' 'LayoutModifier'. This data type is an instance
+-- | The 'DecorationEx' 'LayoutModifier'. This data type is an instance
 -- of the 'LayoutModifier' class. This data type will be passed,
 -- together with a layout, to the 'ModifiedLayout' type constructor
 -- to modify the layout by adding decorations according to a
--- 'DecorationStyle'.
+-- 'DecorationEngine'.
 data DecorationEx engine widget geom shrinker a =
     DecorationEx (Invisible Maybe (DecorationLayoutState engine)) shrinker (Theme engine widget) (engine widget a) (geom a)
 
 deriving instance (Show (Theme engine widget), Show shrinker, Show (engine widget a), Show (geom a)) => Show (DecorationEx engine widget geom shrinker a)
 deriving instance (Read (Theme engine widget), Read shrinker, Read (engine widget a), Read (geom a)) => Read (DecorationEx engine widget geom shrinker a)
 
--- | The long 'LayoutModifier' instance for the 'Decoration' type.
+-- | The long 'LayoutModifier' instance for the 'DecorationEx' type.
 --
 -- In 'redoLayout' we check the state: if there is no state we
 -- initialize it.
@@ -54,8 +57,8 @@ deriving instance (Read (Theme engine widget), Read shrinker, Read (engine widge
 -- invisible\/stacked windows.
 --
 -- Message handling is quite simple: when needed we release the state
--- component of the 'Decoration' 'LayoutModifier'. Otherwise we call
--- 'handleEvent', which will call the appropriate 'DecorationStyle'
+-- component of the 'DecorationEx' 'LayoutModifier'. Otherwise we call
+-- 'handleEvent', which will call the appropriate 'DecorationEngine'
 -- methods to perform its tasks.
 instance (DecorationEngine engine widget Window, DecorationGeometry geom Window, Shrinker shrinker) => LayoutModifier (DecorationEx engine widget geom shrinker) Window where
     redoLayout (DecorationEx (I (Just state)) shrinker theme engine geom) _ Nothing _ = do
@@ -159,7 +162,7 @@ instance (DecorationEngine engine widget Window, DecorationGeometry geom Window,
 
     modifierDescription (DecorationEx _ _ _ engine geom) = describeEngine engine ++ describeGeometry geom
 
--- | By default 'Decoration' handles 'PropertyEvent' and 'ExposeEvent'
+-- | By default 'DecorationEx' handles 'PropertyEvent' and 'ExposeEvent'
 -- only.
 handleEvent :: (Shrinker shrinker, DecorationEngine engine widget Window) => engine widget Window -> shrinker -> Theme engine widget -> DecorationLayoutState engine -> Event -> X ()
 handleEvent engine shrinker theme (DecorationLayoutState {..}) e
@@ -259,8 +262,13 @@ updateDeco engine shrinker theme decoState wd isExpose =
     (Just decoWindow, Nothing) -> hideWindow decoWindow
     _ -> return ()
 
+-- | Apply a DecorationEx modifier to an underlying layout
 decorationEx :: (DecorationEngine engine widget a, DecorationGeometry geom a, Shrinker shrinker)
-             => shrinker -> Theme engine widget -> engine widget a -> geom a
-             -> l a -> ModifiedLayout (DecorationEx engine widget geom shrinker) l a
+             => shrinker             -- ^ Strings shrinker, for example @shrinkText@
+             -> Theme engine widget  -- ^ Decoration theme
+             -> engine widget a      -- ^ Decoration engine instance
+             -> geom a               -- ^ Decoration geometry instance
+             -> l a                  -- ^ Underlying layout to be decorated
+             -> ModifiedLayout (DecorationEx engine widget geom shrinker) l a
 decorationEx shrinker theme engine geom = ModifiedLayout (DecorationEx (I Nothing) shrinker theme engine geom)
 
