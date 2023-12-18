@@ -44,7 +44,7 @@
 module XMonad.Layout.DecorationEx (
   -- * Usage:
   -- $usage
-  --
+
   -- * Standard decoration settings
   decorationEx,
   textDecoration, textTabbed, dwmStyleDeco,
