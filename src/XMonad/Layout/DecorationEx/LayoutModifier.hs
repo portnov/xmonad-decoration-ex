@@ -6,7 +6,27 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  XMonad.Layout.DecorationEx.LayoutModifier
+-- Description :  Layout modifier which adds decorations to windows.
+-- Copyright   :  (c) 2007 Andrea Rossato, 2009 Jan Vornberger, 2023 Ilya Portnov
+-- License     :  BSD-style (see xmonad/LICENSE)
+--
+-- Maintainer  :  portnov84@rambler.ru
+-- Stability   :  unstable
+-- Portability :  unportable
+--
+-- Layout modifier, which is responsible for creation of decoration rectangles
+-- (windows), updating and removing them when needed. It is parametrized by
+-- @DecorationGeometry@, which says where decorations should be placed, and by
+-- @DecorationEngine@, which says how decorations should look.
+-----------------------------------------------------------------------------
+
 module XMonad.Layout.DecorationEx.LayoutModifier (
+    -- * Usage
+    --
+    -- $usage
     decorationEx,
     DecorationEx
   ) where
@@ -15,7 +35,6 @@ import XMonad
 import XMonad.Prelude
 import qualified XMonad.StackSet as W
 import XMonad.Layout.LayoutModifier
-import XMonad.Layout.Decoration (Shrinker (..) )
 import XMonad.Layout.WindowArranger (diff, listFromList)
 import XMonad.Util.Invisible
 import XMonad.Util.XUtils hiding (paintTextAndIcons)
@@ -23,6 +42,35 @@ import XMonad.Util.XUtils hiding (paintTextAndIcons)
 import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.Engine
 import XMonad.Layout.DecorationEx.Geometry
+
+-- $usage
+--
+-- This module exports @decorationEx@ function, which is a generic function for
+-- adding decorations to your layouts. It can be used to use different
+-- decoration geometries and engines in any combination.
+-- For most used combinations, there are convinience functions in
+-- "XMonad.Layout.DecorationEx.TextEngine", "XMonad.Layout.DecorationEx.TabbedGeometry",
+-- and "XMonad.Layout.DecorationEx.DwmGeometry".
+--
+-- You can use this module with the following in your
+-- @~\/.xmonad\/xmonad.hs@:
+--
+-- > import XMonad.Layout.DecorationEx.LayoutModifier
+-- Then edit your @layoutHook@ by adding the DwmStyle decoration to
+-- your layout:
+--
+-- > myL = decorationEx shrinkText myTheme myEngine myGeometry (layoutHook def)
+-- >         where
+-- >           myGeometry = DefaultGeometry -- or another geometry type
+-- >           myEngine = TextDecoration    -- or another decoration engine
+-- >           myTheme = GenericTheme {...} -- theme type should correspond to selected engine type
+-- >
+-- > main = xmonad def { layoutHook = myL }
+--
+-- For more detailed instructions on editing the layoutHook see:
+--
+-- "XMonad.Doc.Extending#Editing_the_layout_hook"
+
 
 -- | The 'DecorationEx' 'LayoutModifier'. This data type is an instance
 -- of the 'LayoutModifier' class. This data type will be passed,

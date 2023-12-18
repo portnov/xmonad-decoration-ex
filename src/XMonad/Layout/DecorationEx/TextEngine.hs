@@ -1,15 +1,13 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, ViewPatterns #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  XMonad.Layout.Decoration.TextEngine
+-- Module      :  XMonad.Layout.DecorationEx.TextEngine
 -- Description :  Text-based window decoration engine
 -- Copyright   :  (c) 2007 Andrea Rossato, 2009 Jan Vornberger, 2023 Ilya Portnov
 -- License     :  BSD-style (see xmonad/LICENSE)
@@ -23,18 +21,15 @@
 -----------------------------------------------------------------------------
 
 module XMonad.Layout.DecorationEx.TextEngine (
-    -- * Usage:
-    -- $usage
-    TextDecoration (..),
-    paintTextWidget, calcTextWidgetPlace,
-    textDecoration
+    textDecoration,
+    TextDecoration (..)
   ) where 
 
 import qualified Data.Map as M
 
 import XMonad
 import XMonad.Prelude
-import XMonad.Layout.Decoration (ModifiedLayout, Shrinker (..))
+import XMonad.Layout.LayoutModifier
 import XMonad.Util.Font
 
 import XMonad.Layout.DecorationEx.LayoutModifier
@@ -42,9 +37,6 @@ import XMonad.Layout.DecorationEx.Types
 import XMonad.Layout.DecorationEx.Engine
 import XMonad.Layout.DecorationEx.Geometry
 import XMonad.Layout.DecorationEx.Widgets
-
--- $usage
--- This module defines simple text-based window decoration engine.
 
 -- | Decoration engine data type
 data TextDecoration widget a = TextDecoration
@@ -66,12 +58,10 @@ instance (TextWidget widget, ClickHandler (GenericTheme SimpleStyle) widget)
 
   paintWidget = paintTextWidget
 
-  paintDecoration = defaultPaintDecoration
+  paintDecoration = paintDecorationSimple
 
   initializeState engine geom theme = initXMF (themeFontName theme)
   releaseStateResources engine = releaseXMF
-
-  placeWidgets = defaultPlaceWidgets
 
 -- | Implementation of @paintWidget@ for decoration engines based on @TextDecoration@.
 paintTextWidget :: (TextWidget widget,

@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -23,7 +22,19 @@
 -- This module defines @DecorationEngine@ type class, and default implementation for it.
 -----------------------------------------------------------------------------
 
-module XMonad.Layout.DecorationEx.Engine where
+module XMonad.Layout.DecorationEx.Engine (
+    -- * DecorationEngine class
+    DecorationEngine (..),
+    -- * Auxiliary data types
+    DrawData (..), 
+    DecorationLayoutState (..),
+    -- * Re-exports from X.L.Decoration
+    Shrinker (..), shrinkText,
+    -- * Utility functions
+    mkDrawData,
+    paintDecorationSimple,
+    windowStyleType, genericWindowStyle
+  ) where
 
 import Control.Monad
 import Data.Bits (testBit)
@@ -32,7 +43,7 @@ import Foreign.C.Types (CInt)
 import XMonad
 import XMonad.Prelude
 import qualified XMonad.StackSet as W
-import XMonad.Layout.Decoration (Shrinker (..), shrinkWhile)
+import XMonad.Layout.Decoration (Shrinker (..), shrinkWhile, shrinkText)
 import XMonad.Layout.DraggingVisualizer (DraggingVisualizerMsg (..))
 import XMonad.Layout.DecorationAddons (handleScreenCrossing)
 import XMonad.Util.Font
@@ -132,6 +143,38 @@ class (Read (engine widget a), Show (engine widget a),
                  -> Window                       -- ^ Original window to be decorated
                  -> WidgetLayout widget          -- ^ Widgets layout
                  -> X (WidgetLayout WidgetPlace)
+    placeWidgets engine theme shrinker decoStyle decoRect window wlayout = do
+        let leftWidgets = wlLeft wlayout
+            rightWidgets = wlRight wlayout
+            centerWidgets = wlCenter wlayout
+
+        dd <- mkDrawData engine shrinker theme decoStyle window decoRect
+        let dd' = dd {ddDecoRect = pad (widgetsPadding theme) (ddDecoRect dd)}
+        rightRects <- alignRight engine dd' rightWidgets
+        leftRects <- alignLeft engine dd' leftWidgets
+        let wantedLeftWidgetsWidth = sum $ map (rect_width . wpRectangle) leftRects
+            wantedRightWidgetsWidth = sum $ map (rect_width . wpRectangle) rightRects
+            hasShrinkableOnLeft = any isShrinkable leftWidgets
+            hasShrinkableOnRight = any isShrinkable rightWidgets
+            decoWidth = rect_width decoRect
+            (leftWidgetsWidth, rightWidgetsWidth) =
+              if hasShrinkableOnLeft
+                then (min (decoWidth - wantedRightWidgetsWidth) wantedLeftWidgetsWidth,
+                      wantedRightWidgetsWidth)
+                else (wantedLeftWidgetsWidth,
+                      min (decoWidth - wantedLeftWidgetsWidth) wantedRightWidgetsWidth)
+            dd'' = dd' {ddDecoRect = padCenter leftWidgetsWidth rightWidgetsWidth (ddDecoRect dd')}
+        centerRects <- alignCenter engine dd'' centerWidgets
+        return $ WidgetLayout leftRects centerRects rightRects
+      where
+        pad p (Rectangle x y w h) =
+          Rectangle (fi (bxLeft p)) (fi (bxTop p))
+                    (w - bxLeft p - bxRight p)
+                    (h - bxTop p - bxBottom p)
+      
+        padCenter left right (Rectangle x y w h) =
+          Rectangle (x + fi left) y
+                    (w - left - right) h
 
     -- | Shrink window title so that it would fit in decoration.
     getShrinkedWindowName :: Shrinker shrinker
@@ -198,20 +241,20 @@ class (Read (engine widget a), Show (engine widget a),
 
     -- | Event handler which is called during mouse dragging.
     -- This is called from default implementation of "decorationEventHookEx".
-    decorationWhileDraggingHook :: engine widget a
-                                -> CInt
-                                -> CInt
-                                -> (Window, Rectangle)
-                                -> Position
-                                -> Position
+    decorationWhileDraggingHook :: engine widget a      -- ^ Decoration engine instance
+                                -> CInt                 -- ^ Event X coordinate
+                                -> CInt                 -- ^ Event Y coordinate
+                                -> (Window, Rectangle)  -- ^ Original window and it's rectangle
+                                -> Position             -- ^ X coordinate of new pointer position during dragging
+                                -> Position             -- ^ Y coordinate of new pointer position during dragging
                                 -> X ()
     decorationWhileDraggingHook _ = handleDraggingInProgress
 
     -- | This hoook is called after a window has been dragged using the decoration.
     -- This is called from default implementation of "decorationEventHookEx".
-    decorationAfterDraggingHook :: engine widget a
-                                -> (Window, Rectangle)
-                                -> Window
+    decorationAfterDraggingHook :: engine widget a     -- ^ Decoration engine instance
+                                -> (Window, Rectangle) -- ^ Original window and it's rectangle
+                                -> Window              -- ^ Decoration window
                                 -> X ()
     decorationAfterDraggingHook _ds (w, _r) decoWin = do
       focus w
@@ -220,26 +263,29 @@ class (Read (engine widget a), Show (engine widget a),
         sendMessage DraggingStopped
         performWindowSwitching w
 
+    -- | Draw everything required on the decoration window.
+    -- This method should draw background (flat or gradient or whatever),
+    -- borders, and call @paintWidget@ method to draw window widgets
+    -- (buttons and title).
     paintDecoration :: Shrinker shrinker
-                    => engine widget a
-                    -> a
-                    -> Dimension
-                    -> Dimension
-                    -> shrinker
-                    -> DrawData engine widget
-                    -> Bool
-                    -> X()
+                    => engine widget a         -- ^ Decoration engine instance
+                    -> a                       -- ^ Decoration window
+                    -> Dimension               -- ^ Decoration window width
+                    -> Dimension               -- ^ Decoration window height
+                    -> shrinker                -- ^ Strings shrinker instance
+                    -> DrawData engine widget  -- ^ Details about what to draw
+                    -> Bool                    -- ^ True when this method is called during Expose event
+                    -> X ()
 
-    -- FIXME: Передавать не DrawData (со списком остальных виджетов зачем-то),
-    -- а более скромную структуру
+    -- | Paint one widget on the decoration window.
     paintWidget :: Shrinker shrinker
-                => engine widget a
-                -> DecorationPaintingContext engine
-                -> WidgetPlace
-                -> shrinker
-                -> DrawData engine widget
-                -> widget
-                -> Bool
+                => engine widget a                  -- ^ Decoration engine instance
+                -> DecorationPaintingContext engine -- ^ Decoration painting context
+                -> WidgetPlace                      -- ^ Place (rectangle) where the widget should be drawn
+                -> shrinker                         -- ^ Strings shrinker instance
+                -> DrawData engine widget           -- ^ Details about window decoration
+                -> widget                           -- ^ Widget to be drawn
+                -> Bool                             -- ^ True when this method is called during Expose event
                 -> X ()
 
 handleDraggingInProgress :: CInt -> CInt -> (Window, Rectangle) -> Position -> Position -> X ()
@@ -320,8 +366,15 @@ alignCenter engine dd widgets = do
           place' = place {wpRectangle = rect'}
       in  place' : pack remaining places
 
+-- | Build an instance of DrawData type.
 mkDrawData :: (DecorationEngine engine widget a, Shrinker shrinker, ThemeAttributes (Theme engine widget), HasWidgets (Theme engine) widget)
-           => engine widget a -> shrinker -> Theme engine widget -> DecorationEngineState engine -> Window -> Rectangle -> X (DrawData engine widget)
+           => engine widget a                -- ^ Decoration engine instance
+           -> shrinker                       -- ^ Strings shrinker
+           -> Theme engine widget            -- ^ Decoration theme
+           -> DecorationEngineState engine   -- ^ State of decoration engine
+           -> Window                         -- ^ Original window (to be decorated)
+           -> Rectangle                      -- ^ Decoration rectangle
+           -> X (DrawData engine widget)
 mkDrawData engine shrinker theme decoState origWindow decoRect@(Rectangle _ _ wh ht) = do
     -- xmonad-contrib #809
     -- qutebrowser will happily shovel a 389K multiline string into @_NET_WM_NAME@
@@ -339,6 +392,8 @@ mkDrawData engine shrinker theme decoState origWindow decoRect@(Rectangle _ _ wh
                    ddWidgetPlaces = WidgetLayout [] [] []
                   }
 
+-- | Generic utility function to select style from @GenericTheme@
+-- based on current state of the window.
 genericWindowStyle :: Window -> GenericTheme style widget -> X style
 genericWindowStyle win theme = do
   styleType <- windowStyleType win
@@ -347,6 +402,7 @@ genericWindowStyle win theme = do
              InactiveWindow -> exInactive theme
              UrgentWindow -> exUrgent theme
 
+-- | Detect type of style to be used from current state of the window.
 windowStyleType :: Window -> X ThemeStyleType
 windowStyleType win = do
   mbFocused <- W.peek <$> gets windowset
@@ -413,7 +469,10 @@ decorationHandler deco theme decoRect widgetPlaces window x y button = do
           executeWindowCommand (widgetCommand w button) window
         else go rest
 
-defaultPaintDecoration :: forall engine shrinker widget.
+-- | Simple implementation of @paintDecoration@ method.
+-- This is used by @TextEngine@ and can be re-used by other decoration
+-- engines.
+paintDecorationSimple :: forall engine shrinker widget.
                           (DecorationEngine engine widget Window,
                            DecorationPaintingContext engine ~ XPaintingContext,
                            Shrinker shrinker,
@@ -426,7 +485,7 @@ defaultPaintDecoration :: forall engine shrinker widget.
                        -> DrawData engine widget
                        -> Bool
                        -> X ()
-defaultPaintDecoration deco win windowWidth windowHeight shrinker dd isExpose = do
+paintDecorationSimple deco win windowWidth windowHeight shrinker dd isExpose = do
     dpy <- asks display
     let widgets = widgetLayout $ ddWidgets dd
         style = ddStyle dd
@@ -468,39 +527,4 @@ defaultPaintDecoration deco win windowWidth windowHeight shrinker dd isExpose = 
       color <- stringToPixel dpy colorName
       io $ setForeground dpy gc color
       io $ fillRectangle dpy pixmap gc x y w h
-
-defaultPlaceWidgets :: (Shrinker shrinker, DecorationEngine engine widget a, ThemeAttributes (Theme engine widget))
-                    => engine widget a -> Theme engine widget -> shrinker -> DecorationEngineState engine -> Rectangle -> Window -> WidgetLayout widget -> X (WidgetLayout WidgetPlace)
-defaultPlaceWidgets engine theme shrinker decoStyle decoRect window wlayout = do
-    let leftWidgets = wlLeft wlayout
-        rightWidgets = wlRight wlayout
-        centerWidgets = wlCenter wlayout
-
-    dd <- mkDrawData engine shrinker theme decoStyle window decoRect
-    let dd' = dd {ddDecoRect = pad (widgetsPadding theme) (ddDecoRect dd)}
-    rightRects <- alignRight engine dd' rightWidgets
-    leftRects <- alignLeft engine dd' leftWidgets
-    let wantedLeftWidgetsWidth = sum $ map (rect_width . wpRectangle) leftRects
-        wantedRightWidgetsWidth = sum $ map (rect_width . wpRectangle) rightRects
-        hasShrinkableOnLeft = any isShrinkable leftWidgets
-        hasShrinkableOnRight = any isShrinkable rightWidgets
-        decoWidth = rect_width decoRect
-        (leftWidgetsWidth, rightWidgetsWidth) =
-          if hasShrinkableOnLeft
-            then (min (decoWidth - wantedRightWidgetsWidth) wantedLeftWidgetsWidth,
-                  wantedRightWidgetsWidth)
-            else (wantedLeftWidgetsWidth,
-                  min (decoWidth - wantedLeftWidgetsWidth) wantedRightWidgetsWidth)
-        dd'' = dd' {ddDecoRect = padCenter leftWidgetsWidth rightWidgetsWidth (ddDecoRect dd')}
-    centerRects <- alignCenter engine dd'' centerWidgets
-    return $ WidgetLayout leftRects centerRects rightRects
-  where
-    pad p (Rectangle x y w h) =
-      Rectangle (fi (bxLeft p)) (fi (bxTop p))
-                (w - bxLeft p - bxRight p)
-                (h - bxTop p - bxBottom p)
-  
-    padCenter left right (Rectangle x y w h) =
-      Rectangle (x + fi left) y
-                (w - left - right) h
 

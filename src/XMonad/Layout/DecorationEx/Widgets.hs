@@ -1,14 +1,32 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, ViewPatterns #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  XMonad.Layout.DecorationEx.Widgets
+-- Description :  Definitions for decoration widgets (window buttons etc)
+-- Copyright   :  2023 Ilya Portnov
+-- License     :  BSD-style (see xmonad/LICENSE)
+--
+-- Maintainer  :  portnov84@rambler.ru
+-- Stability   :  unstable
+-- Portability :  unportable
+--
+-- This module contains data types and utilities to deal with decoration
+-- widgets. A widget is anything that is displayed on window decoration,
+-- and, optionally, can react on clicks. Examples of widgets are usual
+-- window buttons (minimize, maximize, close), window icon and window title.
+-----------------------------------------------------------------------------
 
 module XMonad.Layout.DecorationEx.Widgets (
+    -- * Data types
     StandardCommand (..),
     TextWidget (..),
     GenericWidget (..),
     StandardWidget,
+    -- * Utility functions
     isWidgetChecked,
+    -- * Presets for standard widgets
     titleW, toggleStickyW, minimizeW,
     maximizeW, closeW, dwmpromoteW,
     moveToNextGroupW,moveToPrevGroupW
@@ -114,12 +132,13 @@ instance WindowCommand StandardCommand where
 
 -- | Generic data type for decoration widgets.
 data GenericWidget cmd =
-      TitleWidget
-    | WindowIcon { swCommand :: !cmd }
+      TitleWidget                      -- ^ Window title (just text label)
+    | WindowIcon { swCommand :: !cmd } -- ^ Window icon with some associated command
+    -- | Other widgets
     | GenericWidget {
-      swCheckedText :: !String,
-      swUncheckedText :: !String,
-      swCommand :: !cmd
+        swCheckedText :: !String       -- ^ Text for checked widget state
+      , swUncheckedText :: !String     -- ^ Text for unchecked widget state
+      , swCommand :: !cmd              -- ^ Window command
     }
     deriving (Show, Read)
 

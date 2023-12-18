@@ -56,10 +56,12 @@ import XMonad.Layout.DecorationEx.TextEngine
 
 -- | Decoration geometry data type
 data DwmGeometry a = DwmGeometry {
-      dwmShowForFocused :: !Bool
-    , dwmHorizontalPosition :: !Rational
-    , dwmDecoHeight :: !Dimension
-    , dwmDecoWidth :: !Dimension
+      dwmShowForFocused :: !Bool         -- ^ Whether to show decorations on focused windows
+    , dwmHorizontalPosition :: !Rational -- ^ Horizontal position of decoration rectangle.
+                                         -- 0 means place it at left corner, 1 - place it at
+                                         -- right corner, @1%2@ - place it at center.
+    , dwmDecoHeight :: !Dimension        -- ^ Height of decoration rectangle
+    , dwmDecoWidth :: !Dimension         -- ^ Width of decoration rectangle
   }
   deriving (Show, Read)
 
