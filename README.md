@@ -40,6 +40,8 @@ See haddock documentation for more details.
 
 ## Current state
 
+This package is currently under active development.
+
 This bunch of code is intended to be included into xmonad-contrib eventually.
 It may appear that inclusion into xmonad-contrib will take time or will require
 further refactoring. That, probably, will break compatibility with configs of
