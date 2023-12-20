@@ -85,7 +85,8 @@ import XMonad.Layout.DecorationEx.DwmGeometry
 -- Then edit your @layoutHook@ by adding the DwmStyle decoration to
 -- your layout:
 --
--- > myL = textDecoration shrinkText (layoutHook def)
+-- > myTheme = ThemeEx {...}
+-- > myL = textDecoration shrinkText myTheme (layoutHook def)
 -- > main = xmonad def { layoutHook = myL }
 --
 -- For more detailed instructions on editing the layoutHook see:

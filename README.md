@@ -73,9 +73,11 @@ Then, in your `xmonad.hs`, write something like
 ```
 import XMonad.Layout.DecorationEx
 
-myL = textDecoration shrinkText (layoutHook def)
+myTheme = ThemeEx {...}
 
-main = xmonad def { layoutHook = myL }
+myLayout = textDecoration shrinkText myTheme (layoutHook def)
+
+main = xmonad def { layoutHook = myLayout }
 ```
 
 ## Cairo decorations 
