@@ -32,8 +32,6 @@ module XMonad.Layout.DecorationEx.TabbedGeometry (
     SingleTabMode (..)
   ) where 
 
-import Data.Default
-
 import XMonad
 import qualified XMonad.StackSet as W
 import XMonad.Prelude

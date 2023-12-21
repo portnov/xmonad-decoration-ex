@@ -26,8 +26,6 @@ module XMonad.Layout.DecorationEx.DwmGeometry (
     dwmStyleDeco, dwmStyleDecoEx
   ) where 
 
-import Data.Default
-
 import XMonad
 import qualified XMonad.StackSet as W
 import XMonad.Layout.LayoutModifier
