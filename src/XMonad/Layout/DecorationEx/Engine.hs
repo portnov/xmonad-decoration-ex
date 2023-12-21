@@ -150,24 +150,40 @@ class (Read (engine widget a), Show (engine widget a),
             centerWidgets = wlCenter wlayout
 
         dd <- mkDrawData engine shrinker theme decoStyle window decoRect
-        let dd' = dd {ddDecoRect = pad (widgetsPadding theme) (ddDecoRect dd)}
-        rightRects <- alignRight engine dd' rightWidgets
-        leftRects <- alignLeft engine dd' leftWidgets
+        let paddedDecoRect = pad (widgetsPadding theme) (ddDecoRect dd)
+            paddedDd = dd {ddDecoRect = paddedDecoRect}
+        rightRects <- alignRight engine paddedDd rightWidgets
+        leftRects <- alignLeft engine paddedDd leftWidgets
         let wantedLeftWidgetsWidth = sum $ map (rect_width . wpRectangle) leftRects
             wantedRightWidgetsWidth = sum $ map (rect_width . wpRectangle) rightRects
             hasShrinkableOnLeft = any isShrinkable leftWidgets
             hasShrinkableOnRight = any isShrinkable rightWidgets
             decoWidth = rect_width decoRect
-            (leftWidgetsWidth, rightWidgetsWidth) =
-              if hasShrinkableOnLeft
-                then (min (decoWidth - wantedRightWidgetsWidth) wantedLeftWidgetsWidth,
+            (leftWidgetsWidth, rightWidgetsWidth)
+              | hasShrinkableOnLeft = 
+                  (min (decoWidth - wantedRightWidgetsWidth) wantedLeftWidgetsWidth,
                       wantedRightWidgetsWidth)
-                else (wantedLeftWidgetsWidth,
+              | hasShrinkableOnRight =
+                  (wantedLeftWidgetsWidth,
                       min (decoWidth - wantedLeftWidgetsWidth) wantedRightWidgetsWidth)
-            dd'' = dd' {ddDecoRect = padCenter leftWidgetsWidth rightWidgetsWidth (ddDecoRect dd')}
-        centerRects <- alignCenter engine dd'' centerWidgets
-        return $ WidgetLayout leftRects centerRects rightRects
+              | otherwise = (wantedLeftWidgetsWidth, wantedRightWidgetsWidth)
+            ddForCenter = paddedDd {ddDecoRect = padCenter leftWidgetsWidth rightWidgetsWidth paddedDecoRect}
+        centerRects <- alignCenter engine ddForCenter centerWidgets
+        let shrinkedLeftRects = packLeft (rect_x paddedDecoRect) $ shrinkPlaces leftWidgetsWidth $ zip leftRects (map isShrinkable leftWidgets)
+            shrinkedRightRects = packRight (rect_width paddedDecoRect) $ shrinkPlaces rightWidgetsWidth $ zip rightRects (map isShrinkable rightWidgets)
+        return $ WidgetLayout shrinkedLeftRects centerRects shrinkedRightRects
       where
+        shrinkPlaces targetWidth ps =
+          let nShrinkable = length (filter snd ps)
+              totalUnshrinkedWidth = sum $ map (rect_width . wpRectangle . fst) $ filter (not . snd) ps
+              shrinkedWidth = (targetWidth - totalUnshrinkedWidth) `div` fi nShrinkable
+
+              resetX place = place {wpRectangle = (wpRectangle place) {rect_x = 0}}
+
+              adjust (place, True) = resetX $ place {wpRectangle = (wpRectangle place) {rect_width = shrinkedWidth}}
+              adjust (place, False) = resetX place
+          in  map adjust ps
+
         pad p (Rectangle _ _ w h) =
           Rectangle (fi (bxLeft p)) (fi (bxTop p))
                     (w - bxLeft p - bxRight p)
@@ -319,29 +335,32 @@ performWindowSwitching win =
 alignLeft :: forall engine widget a. DecorationEngine engine widget a => engine widget a -> DrawData engine widget -> [widget] -> X [WidgetPlace]
 alignLeft engine dd widgets = do
     places <- mapM (calcWidgetPlace engine dd) widgets
-    let places' = go (rect_x $ ddDecoRect dd) places
-    return places'
-  where
-    go _ [] = []
-    go x0 (place : places) =
-      let rect = wpRectangle place
-          x' = x0 + rect_x rect
-          rect' = rect {rect_x = x'}
-          place' = place {wpRectangle = rect'}
-      in  place' : go (x' + fi (rect_width rect)) places
+    return $ packLeft (rect_x $ ddDecoRect dd) places
+
+packLeft :: Position -> [WidgetPlace] -> [WidgetPlace]
+packLeft _ [] = []
+packLeft x0 (place : places) =
+  let rect = wpRectangle place
+      x' = x0 + rect_x rect
+      rect' = rect {rect_x = x'}
+      place' = place {wpRectangle = rect'}
+  in  place' : packLeft (x' + fi (rect_width rect)) places
 
 alignRight :: forall engine widget a. DecorationEngine engine widget a => engine widget a -> DrawData engine widget -> [widget] -> X [WidgetPlace]
 alignRight engine dd widgets = do
     places <- mapM (calcWidgetPlace engine dd) widgets
-    return $ reverse $ go (rect_width $ ddDecoRect dd) places
+    return $ packRight (rect_width $ ddDecoRect dd) places
+
+packRight :: Dimension -> [WidgetPlace] -> [WidgetPlace]
+packRight x0 places = reverse $ go x0 places
   where
     go _ [] = []
-    go x0 (place : places) = 
+    go x (place : rest) = 
       let rect = wpRectangle place
-          x' = x0 - rect_width rect
+          x' = x - rect_width rect
           rect' = rect {rect_x = fi x'}
           place' = place {wpRectangle = rect'}
-      in  place' : go x' places
+      in  place' : go x' rest
 
 alignCenter :: forall engine widget a. DecorationEngine engine widget a => engine widget a -> DrawData engine widget -> [widget] -> X [WidgetPlace]
 alignCenter engine dd widgets = do
