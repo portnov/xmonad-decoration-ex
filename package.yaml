@@ -20,6 +20,9 @@ dependencies:
 
 ghc-options:
   - -Wunused-imports
+  - -Wall
+  - -Wwarn=deprecations
+  - -Wwarn=dodgy-imports
 
 library:
   source-dirs:      src

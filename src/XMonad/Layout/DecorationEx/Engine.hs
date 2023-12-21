@@ -38,6 +38,7 @@ module XMonad.Layout.DecorationEx.Engine (
 
 import Control.Monad
 import Data.Bits (testBit)
+import Data.Kind
 import Foreign.C.Types (CInt)
 
 import XMonad
@@ -95,7 +96,7 @@ class (Read (engine widget a), Show (engine widget a),
     -- | Type of themes used by decoration engine.
     -- This type must be parametrized over widget type,
     -- because theme will contain a list of widgets.
-    type Theme engine :: * -> *           
+    type Theme engine :: Type -> Type           
                                           
     -- | Type of data used by engine as a context during painting;
     -- for plain X11-based implementation this is Display, Pixmap
@@ -167,7 +168,7 @@ class (Read (engine widget a), Show (engine widget a),
         centerRects <- alignCenter engine dd'' centerWidgets
         return $ WidgetLayout leftRects centerRects rightRects
       where
-        pad p (Rectangle x y w h) =
+        pad p (Rectangle _ _ w h) =
           Rectangle (fi (bxLeft p)) (fi (bxTop p))
                     (w - bxLeft p - bxRight p)
                     (h - bxTop p - bxBottom p)
@@ -188,7 +189,7 @@ class (Read (engine widget a), Show (engine widget a),
 
     default getShrinkedWindowName :: (Shrinker shrinker, DecorationEngineState engine ~ XMonadFont)
                                   => engine widget a -> shrinker -> DecorationEngineState engine -> String -> Dimension -> Dimension -> X String
-    getShrinkedWindowName engine shrinker font name wh ht = do
+    getShrinkedWindowName _ shrinker font name wh ht = do
       let s = shrinkIt shrinker
       dpy <- asks display
       shrinkWhile s (\n -> do size <- io $ textWidthXMF dpy font n
@@ -375,7 +376,7 @@ mkDrawData :: (DecorationEngine engine widget a, Shrinker shrinker, ThemeAttribu
            -> Window                         -- ^ Original window (to be decorated)
            -> Rectangle                      -- ^ Decoration rectangle
            -> X (DrawData engine widget)
-mkDrawData engine shrinker theme decoState origWindow decoRect@(Rectangle _ _ wh ht) = do
+mkDrawData _ _ theme decoState origWindow decoRect = do
     -- xmonad-contrib #809
     -- qutebrowser will happily shovel a 389K multiline string into @_NET_WM_NAME@
     -- and the 'defaultShrinker' (a) doesn't handle multiline strings well (b) is
@@ -422,7 +423,7 @@ windowStyleType win = do
 -- | Mouse focus and mouse drag are handled by the same function, this
 -- way we can start dragging unfocused windows too.
 handleMouseFocusDrag :: (DecorationEngine engine widget a, Shrinker shrinker) => engine widget a -> Theme engine widget -> DecorationLayoutState engine -> shrinker -> Event -> X ()
-handleMouseFocusDrag ds theme (DecorationLayoutState {dsDecorations}) shrinker (ButtonEvent {ev_window, ev_x_root, ev_y_root, ev_event_type, ev_button})
+handleMouseFocusDrag ds theme (DecorationLayoutState {dsDecorations}) _ (ButtonEvent {ev_window, ev_x_root, ev_y_root, ev_event_type, ev_button})
     | ev_event_type == buttonPress
     , Just (WindowDecoration {..}) <- findDecoDataByDecoWindow ev_window dsDecorations = do
         let decoRect@(Rectangle dx dy _ _) = fromJust wdDecoRect
@@ -431,7 +432,7 @@ handleMouseFocusDrag ds theme (DecorationLayoutState {dsDecorations}) shrinker (
             button = fi ev_button
         dealtWith <- handleDecorationClick ds theme decoRect (map wpRectangle wdWidgets) wdOrigWindow x y button
         unless dealtWith $ when (isDraggingEnabled theme button) $
-            mouseDrag (\x y -> focus wdOrigWindow >> decorationWhileDraggingHook ds ev_x_root ev_y_root (wdOrigWindow, wdOrigWinRect) x y)
+            mouseDrag (\dragX dragY -> focus wdOrigWindow >> decorationWhileDraggingHook ds ev_x_root ev_y_root (wdOrigWindow, wdOrigWinRect) dragX dragY)
                       (decorationAfterDraggingHook ds (wdOrigWindow, wdOrigWinRect) ev_window)
 handleMouseFocusDrag _ _ _ _ _ = return ()
 
@@ -452,7 +453,7 @@ decorationHandler :: forall engine widget a.
                   -> Int
                   -> Int
                   -> X Bool
-decorationHandler deco theme decoRect widgetPlaces window x y button = do
+decorationHandler _ theme _ widgetPlaces window x y button = do
     widgetDone <- go $ zip (widgetLayout $ themeWidgets theme) widgetPlaces
     if widgetDone
       then return True
