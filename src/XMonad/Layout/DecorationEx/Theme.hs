@@ -21,9 +21,9 @@ module XMonad.Layout.DecorationEx.Theme (
     shadowBorder
   ) where
 
-import Data.Default
 import qualified Data.Map as M
 
+import XMonad
 import qualified XMonad.Layout.Decoration as D
 
 import XMonad.Layout.DecorationEx.Types
