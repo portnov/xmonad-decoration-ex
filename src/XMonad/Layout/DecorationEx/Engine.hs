@@ -149,7 +149,7 @@ class (Read (engine widget a), Show (engine widget a),
             rightWidgets = wlRight wlayout
             centerWidgets = wlCenter wlayout
 
-        dd <- mkDrawData theme decoStyle window decoRect
+        dd <- mkDrawData engine theme decoStyle window decoRect
         let paddedDecoRect = pad (widgetsPadding theme) (ddDecoRect dd)
             paddedDd = dd {ddDecoRect = paddedDecoRect}
         rightRects <- alignRight engine paddedDd rightWidgets
@@ -209,7 +209,7 @@ class (Read (engine widget a), Show (engine widget a),
       let s = shrinkIt shrinker
       dpy <- asks display
       shrinkWhile s (\n -> do size <- io $ textWidthXMF dpy font n
-                              return $ size > fromIntegral wh) name
+                              return $ size > fromIntegral wh - fromIntegral (ht `div` 2)) name
 
     -- | Mask of X11 events on which the decoration engine should do something.
     -- @exposureMask@ should be included here so that decoration engine could
@@ -387,13 +387,14 @@ alignCenter engine dd widgets = do
       in  place' : pack remaining places
 
 -- | Build an instance of DrawData type.
-mkDrawData :: (ThemeAttributes (Theme engine widget), HasWidgets (Theme engine) widget)
-           => Theme engine widget            -- ^ Decoration theme
+mkDrawData :: (DecorationEngine engine widget a, ThemeAttributes (Theme engine widget), HasWidgets (Theme engine) widget)
+           => engine widget a
+           -> Theme engine widget            -- ^ Decoration theme
            -> DecorationEngineState engine   -- ^ State of decoration engine
            -> Window                         -- ^ Original window (to be decorated)
            -> Rectangle                      -- ^ Decoration rectangle
            -> X (DrawData engine widget)
-mkDrawData theme decoState origWindow decoRect = do
+mkDrawData _ theme decoState origWindow decoRect = do
     -- xmonad-contrib #809
     -- qutebrowser will happily shovel a 389K multiline string into @_NET_WM_NAME@
     -- and the 'defaultShrinker' (a) doesn't handle multiline strings well (b) is
