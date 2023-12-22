@@ -25,15 +25,13 @@ module XMonad.Layout.DecorationEx.TextEngine (
     TextDecoration (..)
   ) where 
 
-import qualified Data.Map as M
-
 import XMonad
 import XMonad.Prelude
 import XMonad.Layout.LayoutModifier
 import XMonad.Util.Font
 
 import XMonad.Layout.DecorationEx.LayoutModifier
-import XMonad.Layout.DecorationEx.Types
+import XMonad.Layout.DecorationEx.Common
 import XMonad.Layout.DecorationEx.Engine
 import XMonad.Layout.DecorationEx.Geometry
 import XMonad.Layout.DecorationEx.Widgets
@@ -41,10 +39,6 @@ import XMonad.Layout.DecorationEx.Widgets
 -- | Decoration engine data type
 data TextDecoration widget a = TextDecoration
   deriving (Show, Read)
-
-instance ClickHandler (GenericTheme SimpleStyle) StandardWidget where
-  onDecorationClick theme button = M.lookup button (exOnDecoClick theme)
-  isDraggingEnabled theme button = button `elem` exDragWindowButtons theme
 
 instance (TextWidget widget, ClickHandler (GenericTheme SimpleStyle) widget)
   => DecorationEngine TextDecoration widget Window where
