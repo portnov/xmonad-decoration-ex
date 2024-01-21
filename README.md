@@ -40,37 +40,13 @@ See haddock documentation for more details.
 
 ## Current state
 
-This package is currently under active development.
+The code from this repo have been merged into [xmonad-contrib](https://github.com/xmonad/xmonad-contrib) repository.
 
-This bunch of code is intended to be included into xmonad-contrib eventually.
-It may appear that inclusion into xmonad-contrib will take time or will require
-further refactoring. That, probably, will break compatibility with configs of
-users of xmonad-decorations-ex, if there will be such. We certainly do not want
-to break compatibility for users of plain xmonad-contrib.
-
-Until then, xmonad-decorations-ex will stay as a separate package. But since it
-is possible that the code will be in xmonad-contrib, I am not in a hurry to put
-this package to hackage.
+The code will remain here for historical purposes. All issues are to be reported to [xmonad-contrib issue tracker](https://github.com/xmonad/xmonad-contrib/issues).
 
 ## Usage
 
-You can use it as any other haskell package. Add to your `stack.yaml` in your
-xmonad config directory:
-
-```
-extra-deps:
-  - git: https://github.com/portnov/xmonad-decoration-ex.git
-    commit: 78..... (you have to put full SHA1 of last commit here)
-```
-
-Or you can clone this repository to your machine and write
-
-```
-extra-deps:
-    - /home/user/src/xmonad-decoration-ex
-```
-
-Then, in your `xmonad.hs`, write something like
+In your `xmonad.hs`, write something like
 
 ```
 import XMonad.Layout.DecorationEx
